@@ -8,10 +8,11 @@ import {
   useSensor,
   useSensors,
   closestCenter,
+  DragOverEvent,
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useBuilderStore } from '@/stores/builderStore';
-import { createComponent, getComponentDefinition } from '@/lib/componentDefinitions';
+import { createComponent, isContainerComponent } from '@/lib/componentDefinitions';
 import { ComponentType } from '@/types/builder';
 import { BuilderToolbar } from './BuilderToolbar';
 import { ComponentPalette } from './ComponentPalette';
@@ -27,6 +28,7 @@ export function BuilderLayout() {
     currentPage,
     addComponent,
     moveComponent,
+    addToContainer,
     setIsDragging,
   } = useBuilderStore();
 
@@ -54,14 +56,21 @@ export function BuilderLayout() {
     if (!over) return;
 
     const activeData = active.data.current;
-    const overId = over.id;
+    const overData = over.data.current;
+    const overId = over.id as string;
 
-    // Dragging from palette to canvas
+    // Dragging from palette
     if (activeData?.type === 'palette') {
       const componentType = activeData.componentType as ComponentType;
       const newComponent = createComponent(componentType);
       
-      // Find drop index
+      // Check if dropping into a container
+      if (overData?.type === 'container') {
+        addToContainer(overData.containerId, newComponent);
+        return;
+      }
+
+      // Dropping onto canvas or another component
       const components = currentPage?.components || [];
       let dropIndex = components.length;
 
@@ -78,6 +87,16 @@ export function BuilderLayout() {
 
     // Reordering within canvas
     if (activeData?.type === 'canvas' && overId !== 'canvas') {
+      // Check if dropping into a container
+      if (overData?.type === 'container') {
+        // Remove from current position and add to container
+        const { deleteComponent } = useBuilderStore.getState();
+        const componentToMove = activeData.component;
+        deleteComponent(componentToMove.id);
+        addToContainer(overData.containerId, componentToMove);
+        return;
+      }
+
       const components = currentPage?.components || [];
       const activeIndex = components.findIndex(c => c.id === active.id);
       const overIndex = components.findIndex(c => c.id === overId);
