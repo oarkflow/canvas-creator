@@ -9,16 +9,26 @@ export class ThemeStore {
 	
 	toggle() {
 		this.state.mode = this.state.mode === 'light' ? 'dark' : 'light';
-		if (typeof window !== 'undefined') {
-			localStorage.setItem('theme', this.state.mode);
-		}
+		this.applyTheme();
 	}
-	
+
 	init() {
 		if (typeof window !== 'undefined') {
 			const saved = localStorage.getItem('theme');
 			if (saved === 'light' || saved === 'dark') {
 				this.state.mode = saved;
+			}
+			this.applyTheme();
+		}
+	}
+
+	private applyTheme() {
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('theme', this.state.mode);
+			if (this.state.mode === 'dark') {
+				document.documentElement.classList.add('dark');
+			} else {
+				document.documentElement.classList.remove('dark');
 			}
 		}
 	}

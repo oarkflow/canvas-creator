@@ -5,6 +5,7 @@ interface TextInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'va
 	defaultValue?: any;
 	value?: any;
 	label?: string;
+	onChange?: (value: any) => void;
 }
 
 export const TextInput = setup<TextInputProps>((props) => {
@@ -16,8 +17,14 @@ export const TextInput = setup<TextInputProps>((props) => {
 				</label>
 			)}
 			<input
-				{...props.$omit(["value"])}
-				defaultValue={bind(props.value)}
+				{...props.$omit(["value", "onChange"])}
+				value={props.value}
+				onChange={(e) => {
+					props.value = e.target.value
+					if (props.onChange) {
+						props.onChange(e.target.value);
+					}
+				}}
 				className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 ${props.className || ''}`}
 			/>
 		</div>

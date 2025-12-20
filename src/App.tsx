@@ -4,11 +4,12 @@ import { TooltipProvider } from "@/shared/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
-import Index from "./pages/Index";
+import { loadRoutes } from "./core/routing/route-loader";
+import Index from "./features/builder/pages";
 import NotFound from "./pages/NotFound";
-import ProductDemo from "@/pages/ProductDemo";
 
 const queryClient = new QueryClient();
+const autoRoutes = loadRoutes();
 
 const App = () => (
   <HelmetProvider>
@@ -19,7 +20,10 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-	          <Route path={"/products"} element={<ProductDemo />} />
+            {/* Auto-discovered routes from init/index.ts files */}
+            {autoRoutes.map((route, index) => (
+              <Route key={index} path={route.path} element={route.element} />
+            ))}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

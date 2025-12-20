@@ -1,5 +1,5 @@
-import {AppProvider, AppState} from "@/core/state/context/app.context";
-import {ProductListPage} from "@/features/products/views/ProductListPage";
+import {AppProvider, AppState} from "@/features";
+import {ProductListPage} from "@/features/products/views/ProductListPage.tsx";
 
 export default function ProductDemo() {
 	// Initialize theme on mount
