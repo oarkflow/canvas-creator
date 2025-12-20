@@ -1,5 +1,5 @@
 import { Helmet } from 'react-helmet-async';
-import { BuilderLayout } from '@/components/builder/BuilderLayout';
+import { BuilderLayout } from '@/features/builder/views/BuilderLayout';
 
 const Index = () => {
   return (
