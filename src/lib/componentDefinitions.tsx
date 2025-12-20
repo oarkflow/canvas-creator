@@ -11,6 +11,8 @@ import {
   CreditCard,
   Layers,
   MousePointer,
+  Columns,
+  RectangleHorizontal,
 } from 'lucide-react';
 
 export interface ComponentDefinition {
@@ -19,9 +21,38 @@ export interface ComponentDefinition {
   icon: React.ComponentType<{ className?: string }>;
   defaultProps: BuilderComponent['props'];
   defaultStyles: ComponentStyles;
+  isContainer?: boolean;
 }
 
 export const componentDefinitions: ComponentDefinition[] = [
+  {
+    type: 'row',
+    label: 'Row',
+    icon: Columns,
+    defaultProps: {},
+    defaultStyles: {
+      padding: '16px',
+      gap: '16px',
+      flexDirection: 'row',
+      justifyContent: 'start',
+      alignItems: 'stretch',
+    },
+    isContainer: true,
+  },
+  {
+    type: 'column',
+    label: 'Column',
+    icon: RectangleHorizontal,
+    defaultProps: {},
+    defaultStyles: {
+      padding: '16px',
+      width: '50%',
+      columnSpan: 1,
+      backgroundColor: '#252538',
+      borderRadius: '8px',
+    },
+    isContainer: true,
+  },
   {
     type: 'heading',
     label: 'Heading',
@@ -84,6 +115,7 @@ export const componentDefinitions: ComponentDefinition[] = [
       backgroundColor: '#1a1a2e',
       borderRadius: '8px',
     },
+    isContainer: true,
   },
   {
     type: 'divider',
@@ -113,6 +145,7 @@ export const componentDefinitions: ComponentDefinition[] = [
       backgroundColor: '#252538',
       borderRadius: '12px',
     },
+    isContainer: true,
   },
   {
     type: 'grid',
@@ -123,6 +156,7 @@ export const componentDefinitions: ComponentDefinition[] = [
       gap: '16px',
       columns: 2,
     },
+    isContainer: true,
   },
   {
     type: 'hero',
@@ -136,6 +170,7 @@ export const componentDefinitions: ComponentDefinition[] = [
       backgroundColor: '#1a1a2e',
       textAlign: 'center',
     },
+    isContainer: true,
   },
 ];
 
@@ -145,15 +180,31 @@ export function createComponent(type: ComponentType): BuilderComponent {
     throw new Error(`Unknown component type: ${type}`);
   }
 
-  return {
+  const component: BuilderComponent = {
     id: uuidv4(),
     type,
     props: { ...definition.defaultProps },
     styles: { ...definition.defaultStyles },
-    children: ['container', 'card', 'grid', 'hero'].includes(type) ? [] : undefined,
   };
+
+  // Add default children for row
+  if (type === 'row') {
+    component.children = [
+      createComponent('column'),
+      createComponent('column'),
+    ];
+  } else if (definition.isContainer) {
+    component.children = [];
+  }
+
+  return component;
 }
 
 export function getComponentDefinition(type: ComponentType): ComponentDefinition | undefined {
   return componentDefinitions.find(d => d.type === type);
+}
+
+export function isContainerComponent(type: ComponentType): boolean {
+  const definition = componentDefinitions.find(d => d.type === type);
+  return definition?.isContainer ?? false;
 }

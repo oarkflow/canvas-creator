@@ -10,7 +10,9 @@ export type ComponentType =
   | 'spacer'
   | 'card'
   | 'grid'
-  | 'hero';
+  | 'hero'
+  | 'row'
+  | 'column';
 
 export interface ComponentStyles {
   backgroundColor?: string;
@@ -25,6 +27,10 @@ export interface ComponentStyles {
   height?: string;
   gap?: string;
   columns?: number;
+  columnSpan?: number;
+  flexDirection?: 'row' | 'column';
+  justifyContent?: 'start' | 'center' | 'end' | 'between' | 'around';
+  alignItems?: 'start' | 'center' | 'end' | 'stretch';
 }
 
 export interface BuilderComponent {

@@ -24,11 +24,12 @@ interface BuilderState {
   setIsDragging: (dragging: boolean) => void;
   
   // Component operations
-  addComponent: (component: BuilderComponent, index?: number) => void;
+  addComponent: (component: BuilderComponent, index?: number, parentId?: string) => void;
   updateComponent: (id: string, updates: Partial<BuilderComponent>) => void;
   deleteComponent: (id: string) => void;
-  moveComponent: (fromIndex: number, toIndex: number) => void;
+  moveComponent: (fromIndex: number, toIndex: number, parentId?: string) => void;
   duplicateComponent: (id: string) => void;
+  addToContainer: (containerId: string, component: BuilderComponent) => void;
   
   // Page operations
   savePage: () => Promise<void>;
@@ -60,19 +61,69 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
   setIsDragging: (dragging) => set({ isDragging: dragging }),
 
   // Component operations
-  addComponent: (component, index) => {
+  addComponent: (component, index, parentId) => {
     const { currentPage } = get();
     if (!currentPage) return;
 
-    const components = [...currentPage.components];
-    if (index !== undefined) {
-      components.splice(index, 0, component);
+    if (parentId) {
+      // Add to a container
+      const addToParent = (components: BuilderComponent[]): BuilderComponent[] => {
+        return components.map(comp => {
+          if (comp.id === parentId && comp.children) {
+            const children = [...comp.children];
+            if (index !== undefined) {
+              children.splice(index, 0, component);
+            } else {
+              children.push(component);
+            }
+            return { ...comp, children };
+          }
+          if (comp.children) {
+            return { ...comp, children: addToParent(comp.children) };
+          }
+          return comp;
+        });
+      };
+
+      set({
+        currentPage: { ...currentPage, components: addToParent(currentPage.components) },
+        selectedComponent: component,
+      });
     } else {
-      components.push(component);
+      // Add to root
+      const components = [...currentPage.components];
+      if (index !== undefined) {
+        components.splice(index, 0, component);
+      } else {
+        components.push(component);
+      }
+
+      set({
+        currentPage: { ...currentPage, components },
+        selectedComponent: component,
+      });
     }
+  },
+
+  addToContainer: (containerId, component) => {
+    const { currentPage } = get();
+    if (!currentPage) return;
+
+    const addToContainer = (components: BuilderComponent[]): BuilderComponent[] => {
+      return components.map(comp => {
+        if (comp.id === containerId) {
+          const children = comp.children ? [...comp.children, component] : [component];
+          return { ...comp, children };
+        }
+        if (comp.children) {
+          return { ...comp, children: addToContainer(comp.children) };
+        }
+        return comp;
+      });
+    };
 
     set({
-      currentPage: { ...currentPage, components },
+      currentPage: { ...currentPage, components: addToContainer(currentPage.components) },
       selectedComponent: component,
     });
   },
@@ -95,11 +146,15 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 
     const updatedComponents = updateInArray(currentPage.components);
     
+    // Also update selectedComponent if it's the one being updated
+    let updatedSelected = selectedComponent;
+    if (selectedComponent?.id === id) {
+      updatedSelected = { ...selectedComponent, ...updates };
+    }
+    
     set({
       currentPage: { ...currentPage, components: updatedComponents },
-      selectedComponent: selectedComponent?.id === id 
-        ? { ...selectedComponent, ...updates } 
-        : selectedComponent,
+      selectedComponent: updatedSelected,
     });
   },
 
@@ -122,29 +177,57 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
     });
   },
 
-  moveComponent: (fromIndex, toIndex) => {
+  moveComponent: (fromIndex, toIndex, parentId) => {
     const { currentPage } = get();
     if (!currentPage) return;
 
-    const components = [...currentPage.components];
-    const [moved] = components.splice(fromIndex, 1);
-    components.splice(toIndex, 0, moved);
+    if (parentId) {
+      const moveInParent = (components: BuilderComponent[]): BuilderComponent[] => {
+        return components.map(comp => {
+          if (comp.id === parentId && comp.children) {
+            const children = [...comp.children];
+            const [moved] = children.splice(fromIndex, 1);
+            children.splice(toIndex, 0, moved);
+            return { ...comp, children };
+          }
+          if (comp.children) {
+            return { ...comp, children: moveInParent(comp.children) };
+          }
+          return comp;
+        });
+      };
 
-    set({ currentPage: { ...currentPage, components } });
+      set({ currentPage: { ...currentPage, components: moveInParent(currentPage.components) } });
+    } else {
+      const components = [...currentPage.components];
+      const [moved] = components.splice(fromIndex, 1);
+      components.splice(toIndex, 0, moved);
+
+      set({ currentPage: { ...currentPage, components } });
+    }
   },
 
   duplicateComponent: (id) => {
     const { currentPage } = get();
     if (!currentPage) return;
 
+    const deepClone = (comp: BuilderComponent): BuilderComponent => {
+      return {
+        ...comp,
+        id: crypto.randomUUID(),
+        children: comp.children?.map(deepClone),
+      };
+    };
+
     const findAndDuplicate = (components: BuilderComponent[]): BuilderComponent[] => {
       const result: BuilderComponent[] = [];
       for (const comp of components) {
-        result.push(comp);
+        result.push({
+          ...comp,
+          children: comp.children ? findAndDuplicate(comp.children) : undefined,
+        });
         if (comp.id === id) {
-          const duplicate = JSON.parse(JSON.stringify(comp));
-          duplicate.id = crypto.randomUUID();
-          result.push(duplicate);
+          result.push(deepClone(comp));
         }
       }
       return result;

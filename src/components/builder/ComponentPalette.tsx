@@ -5,7 +5,7 @@ import { Separator } from '@/components/ui/separator';
 
 export function ComponentPalette() {
   const layoutComponents = componentDefinitions.filter(d => 
-    ['container', 'card', 'grid', 'hero'].includes(d.type)
+    ['row', 'container', 'card', 'grid', 'hero'].includes(d.type)
   );
   
   const basicComponents = componentDefinitions.filter(d => 
@@ -13,7 +13,7 @@ export function ComponentPalette() {
   );
   
   const utilityComponents = componentDefinitions.filter(d => 
-    ['divider', 'spacer'].includes(d.type)
+    ['divider', 'spacer', 'column'].includes(d.type)
   );
 
   return (
