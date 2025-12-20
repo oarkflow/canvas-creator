@@ -11,7 +11,7 @@ export class ThemeStore {
 		this.state.mode = this.state.mode === 'light' ? 'dark' : 'light';
 		this.applyTheme();
 	}
-
+	
 	init() {
 		if (typeof window !== 'undefined') {
 			const saved = localStorage.getItem('theme');
@@ -21,7 +21,7 @@ export class ThemeStore {
 			this.applyTheme();
 		}
 	}
-
+	
 	private applyTheme() {
 		if (typeof window !== 'undefined') {
 			localStorage.setItem('theme', this.state.mode);

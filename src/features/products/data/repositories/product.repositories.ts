@@ -2,7 +2,8 @@ import {ApiService} from "@/core/data/services/api.service";
 import {CreateProductDTO, Product} from "@/features/products/data/models/product.model";
 
 export class ProductRepository {
-	constructor(private api: ApiService) {}
+	constructor(private api: ApiService) {
+	}
 	
 	async getAll(): Promise<Product[]> {
 		return this.api.get<Product[]>('/products');

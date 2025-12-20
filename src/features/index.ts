@@ -1,4 +1,4 @@
-import { contextProvider } from '@anchorlib/react';
+import {contextProvider} from '@anchorlib/react';
 import {ApiService} from "@/core/data/services/api.service.ts";
 import {ProductRepository} from "@/features/products/data/repositories/product.repositories.ts";
 import {ProductStore} from "@/features/products/state/stores/product.store.ts";

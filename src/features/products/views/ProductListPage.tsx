@@ -1,4 +1,4 @@
-import { setup, render, getContext, effect, mutable } from '@anchorlib/react';
+import {effect, getContext, mutable, render, setup} from '@anchorlib/react';
 import {AppCtx, AppState} from "@/features";
 import {Button} from "@/shared/ui/button";
 import {TextInput} from "@/shared/ui/text-input";
@@ -34,7 +34,8 @@ export const ProductListPage = setup(() => {
 		};
 		
 		return render(() => (
-			<div className={`min-h-screen p-8 transition-colors ${theme.isDark.value ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+			<div
+				className={`min-h-screen p-8 transition-colors ${theme.isDark.value ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
 				<div className="max-w-6xl mx-auto">
 					{/* Header */}
 					<div className="flex justify-between items-center mb-8">

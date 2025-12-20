@@ -7,7 +7,7 @@ export default function ProductDemo() {
 	
 	return (
 		<AppProvider value={AppState}>
-			<ProductListPage />
+			<ProductListPage/>
 		</AppProvider>
 	);
 }

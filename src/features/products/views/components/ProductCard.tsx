@@ -1,4 +1,4 @@
-import { setup, render } from '@anchorlib/react';
+import {render, setup} from '@anchorlib/react';
 import {Product} from "@/features/products/data/models/product.model";
 import {Button} from "@/shared/ui/button";
 
@@ -19,7 +19,8 @@ export const ProductCard = setup<ProductCardProps>((props) => {
 			<p className="text-gray-600 dark:text-gray-400 mb-2">{props.product.category}</p>
 			<p className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">${props.product.price.toFixed(2)}</p>
 			<div className="flex items-center justify-between">
-        <span className={props.product.inStock ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+        <span
+	        className={props.product.inStock ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
           {props.product.inStock ? 'In Stock' : 'Out of Stock'}
         </span>
 				<Button variant="destructive" onClick={handleDelete}>

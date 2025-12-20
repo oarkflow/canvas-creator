@@ -1,5 +1,5 @@
-import { setup, render, bind } from '@anchorlib/react';
-import type { InputHTMLAttributes } from 'react';
+import {render, setup} from '@anchorlib/react';
+import type {InputHTMLAttributes} from 'react';
 
 interface TextInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value'> {
 	defaultValue?: any;

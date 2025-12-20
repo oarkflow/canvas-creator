@@ -1,22 +1,9 @@
-import { mutable, derived, effect } from '@anchorlib/react';
+import {derived, effect, mutable} from '@anchorlib/react';
 import {ProductRepository} from "@/features/products/data/repositories/product.repositories";
 import {CreateProductDTO, Product} from "@/features/products/data/models/product.model";
 import {ProductValidator} from "@/features/products/data/validators/product.validator";
 
 export class ProductStore {
-	constructor(private repository: ProductRepository) {
-		// Auto-save to localStorage on changes
-		effect(() => {
-			if (typeof window !== 'undefined') {
-				const snapshot = {
-					data: this.state.data,
-					selectedCategory: this.state.selectedCategory,
-				};
-				localStorage.setItem('products', JSON.stringify(snapshot));
-			}
-		});
-	}
-	
 	// Reactive state
 	state = mutable({
 		data: [] as Product[],
@@ -27,7 +14,6 @@ export class ProductStore {
 		error: null as string | null,
 		sortBy: 'name' as 'name' | 'price',
 	});
-	
 	// Computed values
 	filteredProducts = derived(() => {
 		let products = this.state.data;
@@ -55,22 +41,32 @@ export class ProductStore {
 			return a.price - b.price;
 		});
 	});
-	
 	categories = derived(() => {
 		const cats = new Set(this.state.data.map(p => p.category));
 		return ['all', ...Array.from(cats)];
 	});
-	
 	totalValue = derived(() => {
 		return this.filteredProducts.value.reduce(
 			(sum, p) => sum + p.price,
 			0
 		);
 	});
-	
 	inStockCount = derived(() => {
 		return this.filteredProducts.value.filter(p => p.inStock).length;
 	});
+	
+	constructor(private repository: ProductRepository) {
+		// Auto-save to localStorage on changes
+		effect(() => {
+			if (typeof window !== 'undefined') {
+				const snapshot = {
+					data: this.state.data,
+					selectedCategory: this.state.selectedCategory,
+				};
+				localStorage.setItem('products', JSON.stringify(snapshot));
+			}
+		});
+	}
 	
 	// Actions
 	async loadProducts() {
