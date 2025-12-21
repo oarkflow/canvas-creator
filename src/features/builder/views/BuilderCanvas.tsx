@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useBuilderStore } from '@/features/builder/state/stores/builderStore';
-import { CanvasComponent } from './CanvasComponent';
+import { CanvasComponent } from './components/CanvasComponent';
 import { cn } from '@/shared/lib/utils';
 import { ScrollArea } from '@/shared/ui/scroll-area';
 import { Layers } from 'lucide-react';

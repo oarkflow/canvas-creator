@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { setup, onMount, render } from '@anchorlib/react';
 import {
     closestCenter,
     DndContext,
@@ -18,7 +18,7 @@ import { BuilderCanvas } from './BuilderCanvas';
 import { PropertiesPanel } from './PropertiesPanel';
 import { Loader2 } from 'lucide-react';
 
-export function BuilderLayout() {
+export const BuilderLayout = setup(() => {
     const {
         isLoading,
         isPreviewMode,
@@ -38,9 +38,9 @@ export function BuilderLayout() {
         })
     );
 
-    useEffect(() => {
+    onMount(() => {
         loadProject();
-    }, [loadProject]);
+    });
 
     const handleDragStart = (event: DragStartEvent) => {
         setIsDragging(true);
@@ -129,17 +129,17 @@ export function BuilderLayout() {
     };
 
     if (isLoading) {
-        return (
+        return render(() => (
             <div className="h-screen flex items-center justify-center bg-background">
                 <div className="text-center">
                     <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
                     <p className="text-muted-foreground">Loading builder...</p>
                 </div>
             </div>
-        );
+        ), 'BuilderLayout');
     }
 
-    return (
+    return render(() => (
         <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -160,5 +160,5 @@ export function BuilderLayout() {
                 {/* Optional: Add drag overlay content */}
             </DragOverlay>
         </DndContext>
-    );
-}
+    ), 'BuilderLayout');
+});
