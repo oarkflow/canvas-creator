@@ -4,6 +4,8 @@ import { Button } from "@/shared/ui/button";
 import { TextInput } from "@/shared/ui/text-input";
 import { ProductCard } from "@/features/products/views/components/ProductCard";
 
+const name = 'ProductListPage';
+
 export const ProductListPage = setup(() => {
     const ProductContext = getContext(AppCtx) as typeof AppState;
     if (!ProductContext) {
@@ -142,6 +144,6 @@ export const ProductListPage = setup(() => {
                     )}
                 </div>
             </div>
-        ), 'ProductListPage');
+        ), name);
     }
-}, 'ProductListPage');
+}, name);
