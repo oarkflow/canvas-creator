@@ -152,6 +152,13 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 			height: component.styles.height,
 		};
 
+		const inputStyles: React.CSSProperties = {
+			...styles,
+			border: `${component.styles.borderWidth || '1px'} solid ${component.styles.borderColor || '#374151'}`,
+			outline: 'none',
+			color: '#f9fafb',
+		};
+
 		switch (component.type) {
 			case 'heading': {
 				const HeadingTag = `h${component.props.level || 1}` as keyof JSX.IntrinsicElements;
@@ -190,6 +197,237 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 
 			case 'spacer':
 				return <div style={styles}/>;
+
+			// Form Components
+			case 'input':
+				return (
+					<div style={{width: styles.width}}>
+						{component.props.label && (
+							<label className="block text-sm font-medium mb-2 text-foreground">
+								{component.props.label}
+								{component.props.required && <span className="text-red-500 ml-1">*</span>}
+							</label>
+						)}
+						<input
+							type={component.props.inputType || 'text'}
+							placeholder={component.props.placeholder}
+							name={component.props.name}
+							disabled={component.props.disabled}
+							required={component.props.required}
+							style={inputStyles}
+							className="focus:ring-2 focus:ring-primary"
+						/>
+					</div>
+				);
+
+			case 'textarea':
+				return (
+					<div style={{width: styles.width}}>
+						{component.props.label && (
+							<label className="block text-sm font-medium mb-2 text-foreground">
+								{component.props.label}
+								{component.props.required && <span className="text-red-500 ml-1">*</span>}
+							</label>
+						)}
+						<textarea
+							placeholder={component.props.placeholder}
+							name={component.props.name}
+							disabled={component.props.disabled}
+							required={component.props.required}
+							style={{...inputStyles, resize: 'vertical'}}
+							className="focus:ring-2 focus:ring-primary"
+						/>
+					</div>
+				);
+
+			case 'select':
+				return (
+					<div style={{width: styles.width}}>
+						{component.props.label && (
+							<label className="block text-sm font-medium mb-2 text-foreground">
+								{component.props.label}
+								{component.props.required && <span className="text-red-500 ml-1">*</span>}
+							</label>
+						)}
+						<div className="relative">
+							<select
+								name={component.props.name}
+								disabled={component.props.disabled}
+								required={component.props.required}
+								multiple={component.props.multiSelect}
+								style={{...inputStyles, appearance: 'none', cursor: 'pointer'}}
+								className="focus:ring-2 focus:ring-primary pr-10"
+							>
+								<option value="">{component.props.placeholder || 'Select...'}</option>
+								{component.props.options?.map((opt) => (
+									<option key={opt.value} value={opt.value}>{opt.label}</option>
+								))}
+							</select>
+							<div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+								<svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+								</svg>
+							</div>
+						</div>
+						{component.props.filterable && (
+							<p className="text-xs text-muted-foreground mt-1">Filterable dropdown</p>
+						)}
+						{component.props.multiSelect && (
+							<p className="text-xs text-muted-foreground mt-1">Multi-select enabled</p>
+						)}
+					</div>
+				);
+
+			case 'checkbox':
+				return (
+					<div style={styles} className="flex items-center gap-3">
+						<input
+							type="checkbox"
+							name={component.props.name}
+							disabled={component.props.disabled}
+							required={component.props.required}
+							className="w-5 h-5 rounded border-border bg-background text-primary focus:ring-primary"
+						/>
+						{component.props.label && (
+							<label className="text-sm text-foreground">
+								{component.props.label}
+								{component.props.required && <span className="text-red-500 ml-1">*</span>}
+							</label>
+						)}
+					</div>
+				);
+
+			case 'radio':
+				return (
+					<div style={styles}>
+						{component.props.label && (
+							<label className="block text-sm font-medium mb-3 text-foreground">
+								{component.props.label}
+								{component.props.required && <span className="text-red-500 ml-1">*</span>}
+							</label>
+						)}
+						<div className="space-y-2">
+							{component.props.options?.map((opt) => (
+								<div key={opt.value} className="flex items-center gap-3">
+									<input
+										type="radio"
+										name={component.props.name}
+										value={opt.value}
+										disabled={component.props.disabled}
+										className="w-4 h-4 border-border text-primary focus:ring-primary"
+									/>
+									<label className="text-sm text-foreground">{opt.label}</label>
+								</div>
+							))}
+						</div>
+					</div>
+				);
+
+			case 'date':
+				return (
+					<div style={{width: styles.width}}>
+						{component.props.label && (
+							<label className="block text-sm font-medium mb-2 text-foreground">
+								{component.props.label}
+								{component.props.required && <span className="text-red-500 ml-1">*</span>}
+							</label>
+						)}
+						<input
+							type="date"
+							name={component.props.name}
+							disabled={component.props.disabled}
+							required={component.props.required}
+							style={inputStyles}
+							className="focus:ring-2 focus:ring-primary"
+						/>
+					</div>
+				);
+
+			case 'datetime':
+				return (
+					<div style={{width: styles.width}}>
+						{component.props.label && (
+							<label className="block text-sm font-medium mb-2 text-foreground">
+								{component.props.label}
+								{component.props.required && <span className="text-red-500 ml-1">*</span>}
+							</label>
+						)}
+						<input
+							type="datetime-local"
+							name={component.props.name}
+							disabled={component.props.disabled}
+							required={component.props.required}
+							style={inputStyles}
+							className="focus:ring-2 focus:ring-primary"
+						/>
+					</div>
+				);
+
+			// Media Components
+			case 'anchor':
+				return (
+					<a
+						href={component.props.href || '#'}
+						target={component.props.target || '_self'}
+						style={{
+							...styles,
+							textDecoration: 'underline',
+							cursor: 'pointer',
+						}}
+						onClick={(e) => isPreviewMode ? undefined : e.preventDefault()}
+					>
+						{component.props.content}
+					</a>
+				);
+
+			case 'video':
+				return (
+					<video
+						src={component.props.src}
+						poster={component.props.poster}
+						controls={component.props.controls}
+						autoPlay={component.props.autoplay}
+						loop={component.props.loop}
+						muted={component.props.muted}
+						style={{...styles, display: 'block'}}
+					>
+						Your browser does not support the video tag.
+					</video>
+				);
+
+			case 'audio':
+				return (
+					<audio
+						src={component.props.src}
+						controls={component.props.controls}
+						autoPlay={component.props.autoplay}
+						loop={component.props.loop}
+						style={{...styles, display: 'block'}}
+					>
+						Your browser does not support the audio element.
+					</audio>
+				);
+
+			case 'webcam':
+				return (
+					<div
+						style={{
+							...styles,
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							border: '2px dashed #374151',
+						}}
+					>
+						<div className="text-center text-muted-foreground">
+							<svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+							</svg>
+							<p className="text-sm">Webcam Feed</p>
+							<p className="text-xs mt-1">Will activate on preview</p>
+						</div>
+					</div>
+				);
 
 			case 'row':
 				return (
@@ -353,11 +591,23 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 		return renderContent();
 	}
 
+	// Apply width/height to wrapper so both wrapper and content resize together
+	const wrapperStyle: React.CSSProperties = {
+		...style,
+		width: component.styles.width,
+		height: component.styles.height,
+	};
+
 	return (
 		<div
-			ref={setSortableRef}
+			ref={(node) => {
+				setSortableRef(node);
+				if (!isContainer) {
+					contentRef.current = node;
+				}
+			}}
 			data-component-id={component.id}
-			style={style}
+			style={wrapperStyle}
 			{...attributes}
 			className={cn(
 				'relative',
@@ -411,13 +661,7 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 				/>
 			)}
 
-			{isContainer ? renderContent() : (
-				<div ref={(node) => {
-					contentRef.current = node;
-				}}>
-					{renderContent()}
-				</div>
-			)}
+			{renderContent()}
 		</div>
 	);
 }
