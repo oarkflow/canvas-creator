@@ -7,22 +7,24 @@ interface BuilderState {
 	currentProject: Project | null;
 	currentPage: Page | null;
 	selectedComponent: BuilderComponent | null;
-	
+	hoveredComponentId: string | null;
+
 	// UI state
 	isLoading: boolean;
 	isSaving: boolean;
 	isPreviewMode: boolean;
 	isDragging: boolean;
-	
+
 	// Actions
 	setCurrentProject: (project: Project | null) => void;
 	setCurrentPage: (page: Page | null) => void;
 	setSelectedComponent: (component: BuilderComponent | null) => void;
+	setHoveredComponentId: (id: string | null) => void;
 	setIsLoading: (loading: boolean) => void;
 	setIsSaving: (saving: boolean) => void;
 	setIsPreviewMode: (preview: boolean) => void;
 	setIsDragging: (dragging: boolean) => void;
-	
+
 	// Component operations
 	addComponent: (component: BuilderComponent, index?: number, parentId?: string) => void;
 	updateComponent: (id: string, updates: Partial<BuilderComponent>) => void;
@@ -30,13 +32,13 @@ interface BuilderState {
 	moveComponent: (fromIndex: number, toIndex: number, parentId?: string) => void;
 	duplicateComponent: (id: string) => void;
 	addToContainer: (containerId: string, component: BuilderComponent) => void;
-	
+
 	// Page operations
 	savePage: () => Promise<void>;
 	loadPage: (projectId: string, pageId: string) => Promise<void>;
 	createNewPage: (name: string, type: Page['type']) => Promise<Page | null>;
 	deletePage: (pageId: string) => Promise<boolean>;
-	
+
 	// Project operations
 	loadProject: () => Promise<void>;
 }
@@ -46,15 +48,17 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 	currentProject: null,
 	currentPage: null,
 	selectedComponent: null,
+	hoveredComponentId: null,
 	isLoading: false,
 	isSaving: false,
 	isPreviewMode: false,
 	isDragging: false,
-	
+
 	// Setters
 	setCurrentProject: (project) => set({currentProject: project}),
 	setCurrentPage: (page) => set({currentPage: page, selectedComponent: null}),
 	setSelectedComponent: (component) => set({selectedComponent: component}),
+	setHoveredComponentId: (id) => set({hoveredComponentId: id}),
 	setIsLoading: (loading) => set({isLoading: loading}),
 	setIsSaving: (saving) => set({isSaving: saving}),
 	setIsPreviewMode: (preview) => set({isPreviewMode: preview}),

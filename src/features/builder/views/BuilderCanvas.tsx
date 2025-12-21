@@ -7,19 +7,37 @@ import {ScrollArea} from '@/shared/ui/scroll-area';
 import {Layers} from 'lucide-react';
 
 export function BuilderCanvas() {
-	const {currentPage, selectedComponent, setSelectedComponent, isPreviewMode, isDragging} = useBuilderStore();
-	
+	const {
+		currentPage,
+		setSelectedComponent,
+		isPreviewMode,
+		isDragging,
+		setHoveredComponentId,
+	} = useBuilderStore();
+
 	const {setNodeRef, isOver} = useDroppable({
 		id: 'canvas',
 		data: {
 			type: 'canvas',
+			parentId: undefined,
 		},
 	});
-	
+
 	const handleCanvasClick = () => {
 		setSelectedComponent(null);
 	};
-	
+
+	const handlePointerMove: React.PointerEventHandler<HTMLDivElement> = (e) => {
+		if (isPreviewMode) return;
+		const target = e.target as HTMLElement | null;
+		const el = target?.closest?.('[data-component-id]') as HTMLElement | null;
+		setHoveredComponentId(el?.dataset.componentId || null);
+	};
+
+	const handlePointerLeave: React.PointerEventHandler<HTMLDivElement> = () => {
+		setHoveredComponentId(null);
+	};
+
 	const components = currentPage?.components || [];
 	
 	if (!currentPage) {
@@ -40,6 +58,8 @@ export function BuilderCanvas() {
 				<div className="min-h-full p-8">
 					<div
 						ref={setNodeRef}
+						onPointerMove={handlePointerMove}
+						onPointerLeave={handlePointerLeave}
 						className={cn(
 							'max-w-4xl mx-auto min-h-[600px] rounded-xl transition-all duration-200',
 							!isPreviewMode && 'bg-surface-2 shadow-lg border border-border canvas-grid',
