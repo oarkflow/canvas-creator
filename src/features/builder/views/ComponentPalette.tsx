@@ -4,17 +4,10 @@ import {ScrollArea} from '@/shared/ui/scroll-area';
 import {Separator} from '@/shared/ui/separator';
 
 export function ComponentPalette() {
-	const layoutComponents = componentDefinitions.filter(d =>
-		['row', 'container', 'card', 'grid', 'hero'].includes(d.type)
-	);
-	
-	const basicComponents = componentDefinitions.filter(d =>
-		['heading', 'paragraph', 'button', 'image'].includes(d.type)
-	);
-	
-	const utilityComponents = componentDefinitions.filter(d =>
-		['divider', 'spacer', 'column'].includes(d.type)
-	);
+	const layoutComponents = componentDefinitions.filter(d => d.category === 'layout');
+	const basicComponents = componentDefinitions.filter(d => d.category === 'basic');
+	const formComponents = componentDefinitions.filter(d => d.category === 'form');
+	const mediaComponents = componentDefinitions.filter(d => d.category === 'media');
 	
 	return (
 		<div className="w-64 bg-card border-r border-border flex flex-col">
@@ -53,13 +46,27 @@ export function ComponentPalette() {
 					
 					<Separator className="bg-border/50"/>
 					
-					{/* Utility Components */}
+					{/* Form Components */}
 					<div>
 						<h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-							Utility
+							Form
 						</h3>
 						<div className="grid grid-cols-2 gap-2">
-							{utilityComponents.map(def => (
+							{formComponents.map(def => (
+								<DraggableComponent key={def.type} definition={def}/>
+							))}
+						</div>
+					</div>
+					
+					<Separator className="bg-border/50"/>
+					
+					{/* Media Components */}
+					<div>
+						<h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+							Media
+						</h3>
+						<div className="grid grid-cols-2 gap-2">
+							{mediaComponents.map(def => (
 								<DraggableComponent key={def.type} definition={def}/>
 							))}
 						</div>

@@ -6,8 +6,9 @@ import {Textarea} from '@/shared/ui/textarea';
 import {Button} from '@/shared/ui/button';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/shared/ui/select';
 import {Separator} from '@/shared/ui/separator';
+import {Switch} from '@/shared/ui/switch';
 import {getComponentDefinition} from '@/features/builder/data/models/componentDefinitions';
-import {Box, LayoutGrid, Palette, Settings, Trash2} from 'lucide-react';
+import {Box, FormInput, LayoutGrid, Link, Palette, Play, Settings, Trash2} from 'lucide-react';
 
 export function PropertiesPanel() {
 	const {selectedComponent, updateComponent, deleteComponent} = useBuilderStore();
@@ -32,7 +33,7 @@ export function PropertiesPanel() {
 	
 	const definition = getComponentDefinition(selectedComponent.type);
 	
-	const handlePropChange = (key: string, value: string | number) => {
+	const handlePropChange = (key: string, value: string | number | boolean | Array<{label: string; value: string}>) => {
 		updateComponent(selectedComponent.id, {
 			props: {...selectedComponent.props, [key]: value},
 		});
@@ -47,6 +48,27 @@ export function PropertiesPanel() {
 	const handleDelete = () => {
 		deleteComponent(selectedComponent.id);
 	};
+
+	const handleOptionChange = (index: number, field: 'label' | 'value', newValue: string) => {
+		const options = [...(selectedComponent.props.options || [])];
+		options[index] = {...options[index], [field]: newValue};
+		handlePropChange('options', options);
+	};
+
+	const addOption = () => {
+		const options = [...(selectedComponent.props.options || [])];
+		options.push({label: `Option ${options.length + 1}`, value: `option-${options.length + 1}`});
+		handlePropChange('options', options);
+	};
+
+	const removeOption = (index: number) => {
+		const options = [...(selectedComponent.props.options || [])];
+		options.splice(index, 1);
+		handlePropChange('options', options);
+	};
+
+	const isFormComponent = ['input', 'textarea', 'select', 'checkbox', 'radio', 'date', 'datetime'].includes(selectedComponent.type);
+	const isMediaComponent = ['anchor', 'video', 'audio', 'webcam'].includes(selectedComponent.type);
 	
 	return (
 		<div className="w-72 bg-card border-l border-border flex flex-col">
@@ -164,6 +186,257 @@ export function PropertiesPanel() {
 							</>
 						)}
 					</div>
+
+					{/* Form Component Properties */}
+					{isFormComponent && (
+						<>
+							<Separator className="bg-border/50"/>
+							<div>
+								<div className="flex items-center gap-2 mb-3">
+									<FormInput className="w-4 h-4 text-muted-foreground"/>
+									<h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+										Form Settings
+									</h3>
+								</div>
+
+								<div className="space-y-2 mb-4">
+									<Label className="text-xs">Label</Label>
+									<Input
+										value={selectedComponent.props.label || ''}
+										onChange={(e) => handlePropChange('label', e.target.value)}
+										className="bg-secondary border-border"
+									/>
+								</div>
+
+								<div className="space-y-2 mb-4">
+									<Label className="text-xs">Name (form field)</Label>
+									<Input
+										value={selectedComponent.props.name || ''}
+										onChange={(e) => handlePropChange('name', e.target.value)}
+										className="bg-secondary border-border"
+									/>
+								</div>
+
+								{['input', 'textarea', 'select', 'date', 'datetime'].includes(selectedComponent.type) && (
+									<div className="space-y-2 mb-4">
+										<Label className="text-xs">Placeholder</Label>
+										<Input
+											value={selectedComponent.props.placeholder || ''}
+											onChange={(e) => handlePropChange('placeholder', e.target.value)}
+											className="bg-secondary border-border"
+										/>
+									</div>
+								)}
+
+								{selectedComponent.type === 'input' && (
+									<div className="space-y-2 mb-4">
+										<Label className="text-xs">Input Type</Label>
+										<Select
+											value={selectedComponent.props.inputType || 'text'}
+											onValueChange={(v) => handlePropChange('inputType', v)}
+										>
+											<SelectTrigger className="bg-secondary border-border">
+												<SelectValue/>
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="text">Text</SelectItem>
+												<SelectItem value="email">Email</SelectItem>
+												<SelectItem value="password">Password</SelectItem>
+												<SelectItem value="number">Number</SelectItem>
+												<SelectItem value="tel">Phone</SelectItem>
+												<SelectItem value="url">URL</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+								)}
+
+								{(selectedComponent.type === 'select' || selectedComponent.type === 'radio') && (
+									<div className="space-y-2 mb-4">
+										<Label className="text-xs">Options</Label>
+										<div className="space-y-2">
+											{selectedComponent.props.options?.map((opt, idx) => (
+												<div key={idx} className="flex gap-2">
+													<Input
+														value={opt.label}
+														onChange={(e) => handleOptionChange(idx, 'label', e.target.value)}
+														placeholder="Label"
+														className="flex-1 bg-secondary border-border text-xs"
+													/>
+													<Input
+														value={opt.value}
+														onChange={(e) => handleOptionChange(idx, 'value', e.target.value)}
+														placeholder="Value"
+														className="flex-1 bg-secondary border-border text-xs"
+													/>
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-9 w-9 text-muted-foreground hover:text-destructive"
+														onClick={() => removeOption(idx)}
+													>
+														<Trash2 className="w-3 h-3"/>
+													</Button>
+												</div>
+											))}
+											<Button
+												variant="outline"
+												size="sm"
+												className="w-full"
+												onClick={addOption}
+											>
+												Add Option
+											</Button>
+										</div>
+									</div>
+								)}
+
+								{selectedComponent.type === 'select' && (
+									<>
+										<div className="flex items-center justify-between mb-4">
+											<Label className="text-xs">Multi-select</Label>
+											<Switch
+												checked={selectedComponent.props.multiSelect || false}
+												onCheckedChange={(v) => handlePropChange('multiSelect', v)}
+											/>
+										</div>
+										<div className="flex items-center justify-between mb-4">
+											<Label className="text-xs">Filterable</Label>
+											<Switch
+												checked={selectedComponent.props.filterable || false}
+												onCheckedChange={(v) => handlePropChange('filterable', v)}
+											/>
+										</div>
+									</>
+								)}
+
+								<div className="flex items-center justify-between mb-4">
+									<Label className="text-xs">Required</Label>
+									<Switch
+										checked={selectedComponent.props.required || false}
+										onCheckedChange={(v) => handlePropChange('required', v)}
+									/>
+								</div>
+
+								<div className="flex items-center justify-between mb-4">
+									<Label className="text-xs">Disabled</Label>
+									<Switch
+										checked={selectedComponent.props.disabled || false}
+										onCheckedChange={(v) => handlePropChange('disabled', v)}
+									/>
+								</div>
+							</div>
+						</>
+					)}
+
+					{/* Media Component Properties */}
+					{isMediaComponent && (
+						<>
+							<Separator className="bg-border/50"/>
+							<div>
+								<div className="flex items-center gap-2 mb-3">
+									{selectedComponent.type === 'anchor' ? (
+										<Link className="w-4 h-4 text-muted-foreground"/>
+									) : (
+										<Play className="w-4 h-4 text-muted-foreground"/>
+									)}
+									<h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+										Media Settings
+									</h3>
+								</div>
+
+								{selectedComponent.type === 'anchor' && (
+									<>
+										<div className="space-y-2 mb-4">
+											<Label className="text-xs">Link URL</Label>
+											<Input
+												value={selectedComponent.props.href || ''}
+												onChange={(e) => handlePropChange('href', e.target.value)}
+												placeholder="https://..."
+												className="bg-secondary border-border"
+											/>
+										</div>
+										<div className="space-y-2 mb-4">
+											<Label className="text-xs">Target</Label>
+											<Select
+												value={selectedComponent.props.target || '_self'}
+												onValueChange={(v) => handlePropChange('target', v)}
+											>
+												<SelectTrigger className="bg-secondary border-border">
+													<SelectValue/>
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="_self">Same Tab</SelectItem>
+													<SelectItem value="_blank">New Tab</SelectItem>
+													<SelectItem value="_parent">Parent Frame</SelectItem>
+													<SelectItem value="_top">Full Window</SelectItem>
+												</SelectContent>
+											</Select>
+										</div>
+									</>
+								)}
+
+								{(selectedComponent.type === 'video' || selectedComponent.type === 'audio') && (
+									<>
+										<div className="space-y-2 mb-4">
+											<Label className="text-xs">Source URL</Label>
+											<Input
+												value={selectedComponent.props.src || ''}
+												onChange={(e) => handlePropChange('src', e.target.value)}
+												placeholder="https://..."
+												className="bg-secondary border-border"
+											/>
+										</div>
+
+										{selectedComponent.type === 'video' && (
+											<div className="space-y-2 mb-4">
+												<Label className="text-xs">Poster Image</Label>
+												<Input
+													value={selectedComponent.props.poster || ''}
+													onChange={(e) => handlePropChange('poster', e.target.value)}
+													placeholder="https://..."
+													className="bg-secondary border-border"
+												/>
+											</div>
+										)}
+
+										<div className="flex items-center justify-between mb-4">
+											<Label className="text-xs">Controls</Label>
+											<Switch
+												checked={selectedComponent.props.controls ?? true}
+												onCheckedChange={(v) => handlePropChange('controls', v)}
+											/>
+										</div>
+
+										<div className="flex items-center justify-between mb-4">
+											<Label className="text-xs">Autoplay</Label>
+											<Switch
+												checked={selectedComponent.props.autoplay || false}
+												onCheckedChange={(v) => handlePropChange('autoplay', v)}
+											/>
+										</div>
+
+										<div className="flex items-center justify-between mb-4">
+											<Label className="text-xs">Loop</Label>
+											<Switch
+												checked={selectedComponent.props.loop || false}
+												onCheckedChange={(v) => handlePropChange('loop', v)}
+											/>
+										</div>
+
+										{selectedComponent.type === 'video' && (
+											<div className="flex items-center justify-between mb-4">
+												<Label className="text-xs">Muted</Label>
+												<Switch
+													checked={selectedComponent.props.muted || false}
+													onCheckedChange={(v) => handlePropChange('muted', v)}
+												/>
+											</div>
+										)}
+									</>
+								)}
+							</div>
+						</>
+					)}
 					
 					{/* Layout Properties for Row/Column */}
 					{(selectedComponent.type === 'row' || selectedComponent.type === 'column') && (
@@ -326,6 +599,26 @@ export function PropertiesPanel() {
 									/>
 								</div>
 							</div>
+
+							{isFormComponent && (
+								<div className="space-y-2 col-span-2">
+									<Label className="text-xs">Border Color</Label>
+									<div className="flex gap-2">
+										<Input
+											type="color"
+											value={selectedComponent.styles.borderColor || '#374151'}
+											onChange={(e) => handleStyleChange('borderColor', e.target.value)}
+											className="w-10 h-9 p-1 bg-secondary border-border cursor-pointer"
+										/>
+										<Input
+											value={selectedComponent.styles.borderColor || ''}
+											onChange={(e) => handleStyleChange('borderColor', e.target.value)}
+											placeholder="#374151"
+											className="flex-1 bg-secondary border-border text-xs"
+										/>
+									</div>
+								</div>
+							)}
 							
 							<div className="space-y-2">
 								<Label className="text-xs">Font Size</Label>

@@ -12,7 +12,20 @@ export type ComponentType =
 	| 'grid'
 	| 'hero'
 	| 'row'
-	| 'column';
+	| 'column'
+	// Form components
+	| 'input'
+	| 'textarea'
+	| 'select'
+	| 'checkbox'
+	| 'radio'
+	| 'date'
+	| 'datetime'
+	// Media components
+	| 'anchor'
+	| 'video'
+	| 'audio'
+	| 'webcam';
 
 export interface ComponentStyles {
 	backgroundColor?: string;
@@ -31,6 +44,8 @@ export interface ComponentStyles {
 	flexDirection?: 'row' | 'column';
 	justifyContent?: 'start' | 'center' | 'end' | 'between' | 'around';
 	alignItems?: 'start' | 'center' | 'end' | 'stretch';
+	borderColor?: string;
+	borderWidth?: string;
 }
 
 export interface BuilderComponent {
@@ -43,6 +58,23 @@ export interface BuilderComponent {
 		href?: string;
 		level?: 1 | 2 | 3 | 4 | 5 | 6;
 		variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+		// Form props
+		placeholder?: string;
+		label?: string;
+		name?: string;
+		required?: boolean;
+		disabled?: boolean;
+		options?: Array<{ label: string; value: string }>;
+		multiSelect?: boolean;
+		filterable?: boolean;
+		inputType?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url';
+		// Media props
+		autoplay?: boolean;
+		controls?: boolean;
+		loop?: boolean;
+		muted?: boolean;
+		poster?: string;
+		target?: '_blank' | '_self' | '_parent' | '_top';
 	};
 	styles: ComponentStyles;
 	children?: BuilderComponent[];
