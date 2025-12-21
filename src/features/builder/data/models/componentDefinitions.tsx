@@ -46,7 +46,7 @@ export const componentDefinitions: ComponentDefinition[] = [
 		defaultProps: {},
 		defaultStyles: {
 			padding: '16px',
-			width: '50%',
+			width: 'auto',
 			columnSpan: 1,
 			backgroundColor: '#252538',
 			borderRadius: '8px',

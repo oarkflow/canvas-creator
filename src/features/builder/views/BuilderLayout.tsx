@@ -46,15 +46,33 @@ export function BuilderLayout() {
         setIsDragging(true);
     };
 
+    const getSiblings = (parentId?: string | null) => {
+        const page = useBuilderStore.getState().currentPage;
+        if (!page) return [];
+
+        const findChildren = (components: any[]): any[] | null => {
+            for (const c of components) {
+                if (c.id === parentId) return c.children || [];
+                if (c.children) {
+                    const found = findChildren(c.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+
+        if (!parentId) return page.components || [];
+        return findChildren(page.components) || [];
+    };
+
     const handleDragEnd = (event: DragEndEvent) => {
         setIsDragging(false);
 
         const { active, over } = event;
-
         if (!over) return;
 
-        const activeData = active.data.current;
-        const overData = over.data.current;
+        const activeData = active.data.current as any;
+        const overData = over.data.current as any;
         const overId = over.id as string;
 
         // Dragging from palette
@@ -62,32 +80,29 @@ export function BuilderLayout() {
             const componentType = activeData.componentType as ComponentType;
             const newComponent = createComponent(componentType);
 
-            // Check if dropping into a container
+            // Dropping into a container
             if (overData?.type === 'container') {
                 addToContainer(overData.containerId, newComponent);
                 return;
             }
 
-            // Dropping onto canvas or another component
+            // Dropping onto canvas/root list
             const components = currentPage?.components || [];
             let dropIndex = components.length;
 
             if (overId !== 'canvas') {
                 const overIndex = components.findIndex(c => c.id === overId);
-                if (overIndex !== -1) {
-                    dropIndex = overIndex;
-                }
+                if (overIndex !== -1) dropIndex = overIndex;
             }
 
             addComponent(newComponent, dropIndex);
             return;
         }
 
-        // Reordering within canvas
-        if (activeData?.type === 'canvas' && overId !== 'canvas') {
-            // Check if dropping into a container
+        // Moving/reordering existing component
+        if (activeData?.type === 'canvas') {
+            // Dropping into a container (move into it)
             if (overData?.type === 'container') {
-                // Remove from current position and add to container
                 const { deleteComponent } = useBuilderStore.getState();
                 const componentToMove = activeData.component;
                 deleteComponent(componentToMove.id);
@@ -95,12 +110,20 @@ export function BuilderLayout() {
                 return;
             }
 
-            const components = currentPage?.components || [];
-            const activeIndex = components.findIndex(c => c.id === active.id);
-            const overIndex = components.findIndex(c => c.id === overId);
+            // Reorder within same parent list (root or nested)
+            if (overData?.type === 'canvas') {
+                const fromParentId = activeData.parentId as string | undefined;
+                const toParentId = overData.parentId as string | undefined;
 
-            if (activeIndex !== -1 && overIndex !== -1 && activeIndex !== overIndex) {
-                moveComponent(activeIndex, overIndex);
+                if (fromParentId === toParentId) {
+                    const siblings = getSiblings(fromParentId);
+                    const activeIndex = siblings.findIndex((c: any) => c.id === active.id);
+                    const overIndex = siblings.findIndex((c: any) => c.id === over.id);
+
+                    if (activeIndex !== -1 && overIndex !== -1 && activeIndex !== overIndex) {
+                        moveComponent(activeIndex, overIndex, fromParentId);
+                    }
+                }
             }
         }
     };

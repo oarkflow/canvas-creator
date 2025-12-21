@@ -1,7 +1,8 @@
+import {useEffect, useRef, useState} from 'react';
 import {BuilderComponent} from '@/features/builder/types/builder';
 import {useBuilderStore} from '@/features/builder/state/stores/builderStore';
 import {cn} from '@/shared/lib/utils';
-import {useSortable} from '@dnd-kit/sortable';
+import {SortableContext, rectSortingStrategy, useSortable} from '@dnd-kit/sortable';
 import {useDroppable} from '@dnd-kit/core';
 import {CSS} from '@dnd-kit/utilities';
 import {Copy, GripVertical, Trash2} from 'lucide-react';
@@ -17,15 +18,21 @@ interface CanvasComponentProps {
 export function CanvasComponent({component, index, parentId}: CanvasComponentProps) {
 	const {
 		selectedComponent,
+		hoveredComponentId,
 		setSelectedComponent,
 		deleteComponent,
 		duplicateComponent,
-		isPreviewMode
+		isPreviewMode,
+		updateComponent,
 	} = useBuilderStore();
-	
+
 	const isSelected = selectedComponent?.id === component.id;
 	const isContainer = isContainerComponent(component.type);
-	
+
+	const contentRef = useRef<HTMLElement | null>(null);
+	const resizeStartRef = useRef<{x: number; y: number; w: number; h: number} | null>(null);
+	const [isResizing, setIsResizing] = useState(false);
+
 	const {
 		attributes,
 		listeners,
@@ -35,6 +42,7 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 		isDragging,
 	} = useSortable({
 		id: component.id,
+		disabled: isPreviewMode || isResizing,
 		data: {
 			type: 'canvas',
 			component,
@@ -42,7 +50,7 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 			parentId,
 		},
 	});
-	
+
 	const {setNodeRef: setDroppableRef, isOver} = useDroppable({
 		id: `container-${component.id}`,
 		data: {
@@ -51,29 +59,85 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 		},
 		disabled: !isContainer || isPreviewMode,
 	});
-	
+
+	const setContainerNodeRef = (node: HTMLElement | null) => {
+		setDroppableRef(node);
+		contentRef.current = node;
+	};
+
 	const style = {
 		transform: CSS.Transform.toString(transform),
 		transition,
 	};
-	
+
 	const handleClick = (e: React.MouseEvent) => {
 		e.stopPropagation();
 		if (!isPreviewMode) {
 			setSelectedComponent(component);
 		}
 	};
-	
+
 	const handleDelete = (e: React.MouseEvent) => {
 		e.stopPropagation();
 		deleteComponent(component.id);
 	};
-	
+
 	const handleDuplicate = (e: React.MouseEvent) => {
 		e.stopPropagation();
 		duplicateComponent(component.id);
 	};
-	
+
+	const handleResizeStart = (e: React.PointerEvent) => {
+		e.stopPropagation();
+		if (isPreviewMode) return;
+
+		const node = contentRef.current;
+		if (!node) return;
+
+		const rect = node.getBoundingClientRect();
+		resizeStartRef.current = {
+			x: e.clientX,
+			y: e.clientY,
+			w: rect.width,
+			h: rect.height,
+		};
+		setIsResizing(true);
+		(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+	};
+
+	useEffect(() => {
+		if (!isResizing) return;
+
+		const onMove = (e: PointerEvent) => {
+			const start = resizeStartRef.current;
+			if (!start) return;
+
+			const nextW = Math.max(24, Math.round(start.w + (e.clientX - start.x)));
+			const nextH = Math.max(24, Math.round(start.h + (e.clientY - start.y)));
+
+			updateComponent(component.id, {
+				styles: {
+					...component.styles,
+					width: `${nextW}px`,
+					height: `${nextH}px`,
+				},
+			});
+		};
+
+		const onUp = () => {
+			setIsResizing(false);
+			resizeStartRef.current = null;
+		};
+
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onUp, {once: true});
+
+		return () => {
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onUp);
+		};
+	}, [component.id, component.styles, isResizing, updateComponent]);
+
 	const renderContent = () => {
 		const styles: React.CSSProperties = {
 			backgroundColor: component.styles.backgroundColor,
@@ -87,15 +151,16 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 			width: component.styles.width,
 			height: component.styles.height,
 		};
-		
+
 		switch (component.type) {
-			case 'heading':
+			case 'heading': {
 				const HeadingTag = `h${component.props.level || 1}` as keyof JSX.IntrinsicElements;
 				return <HeadingTag style={styles}>{component.props.content}</HeadingTag>;
-			
+			}
+
 			case 'paragraph':
 				return <p style={styles}>{component.props.content}</p>;
-			
+
 			case 'button':
 				return (
 					<button
@@ -110,7 +175,7 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 						{component.props.content}
 					</button>
 				);
-			
+
 			case 'image':
 				return (
 					<img
@@ -119,20 +184,21 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 						style={{...styles, display: 'block'}}
 					/>
 				);
-			
+
 			case 'divider':
 				return <hr style={{...styles, border: 'none', borderTop: '1px solid #374151'}}/>;
-			
+
 			case 'spacer':
 				return <div style={styles}/>;
-			
+
 			case 'row':
 				return (
 					<div
-						ref={setDroppableRef}
+						ref={setContainerNodeRef}
 						style={{
 							...styles,
 							display: 'flex',
+							flexWrap: 'wrap',
 							flexDirection: component.styles.flexDirection || 'row',
 							gap: component.styles.gap,
 							justifyContent: getFlexValue(component.styles.justifyContent),
@@ -144,27 +210,37 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 						)}
 					>
 						{component.children && component.children.length > 0 ? (
-							component.children.map((child, idx) => (
-								<CanvasComponent key={child.id} component={child} index={idx} parentId={component.id}/>
-							))
+							<SortableContext
+								items={component.children.map(c => c.id)}
+								strategy={rectSortingStrategy}
+							>
+								{component.children.map((child, idx) => (
+									<CanvasComponent key={child.id} component={child} index={idx} parentId={component.id}/>
+								))}
+							</SortableContext>
 						) : (
 							!isPreviewMode && (
 								<div
-									className="flex-1 text-center text-muted-foreground text-sm py-8 border-2 border-dashed border-border/50 rounded-lg">
+									className="flex-1 text-center text-muted-foreground text-sm py-8 border-2 border-dashed border-border/50 rounded-lg"
+								>
 									Drop columns or components here
 								</div>
 							)
 						)}
 					</div>
 				);
-			
-			case 'column':
+
+			case 'column': {
+				const width = component.styles.width;
+				const span = component.styles.columnSpan || 1;
+				const flex = width && width !== 'auto' ? `0 0 ${width}` : `${span} 1 0%`;
+
 				return (
 					<div
-						ref={setDroppableRef}
+						ref={setContainerNodeRef}
 						style={{
 							...styles,
-							flex: component.styles.columnSpan || 1,
+							flex,
 							minWidth: 0,
 						}}
 						className={cn(
@@ -173,29 +249,35 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 						)}
 					>
 						{component.children && component.children.length > 0 ? (
-							<div className="space-y-2">
-								{component.children.map((child, idx) => (
-									<CanvasComponent key={child.id} component={child} index={idx}
-									                 parentId={component.id}/>
-								))}
-							</div>
+							<SortableContext
+								items={component.children.map(c => c.id)}
+								strategy={rectSortingStrategy}
+							>
+								<div className="space-y-2">
+									{component.children.map((child, idx) => (
+										<CanvasComponent key={child.id} component={child} index={idx} parentId={component.id}/>
+									))}
+								</div>
+							</SortableContext>
 						) : (
 							!isPreviewMode && (
 								<div
-									className="text-center text-muted-foreground text-sm py-8 border-2 border-dashed border-border/50 rounded-lg">
+									className="text-center text-muted-foreground text-sm py-8 border-2 border-dashed border-border/50 rounded-lg"
+								>
 									Drop here
 								</div>
 							)
 						)}
 					</div>
 				);
-			
+			}
+
 			case 'container':
 			case 'card':
 			case 'hero':
 				return (
 					<div
-						ref={setDroppableRef}
+						ref={setContainerNodeRef}
 						style={styles}
 						className={cn(
 							'min-h-[60px] transition-all',
@@ -203,24 +285,30 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 						)}
 					>
 						{component.children && component.children.length > 0 ? (
-							component.children.map((child, idx) => (
-								<CanvasComponent key={child.id} component={child} index={idx} parentId={component.id}/>
-							))
+							<SortableContext
+								items={component.children.map(c => c.id)}
+								strategy={rectSortingStrategy}
+							>
+								{component.children.map((child, idx) => (
+									<CanvasComponent key={child.id} component={child} index={idx} parentId={component.id}/>
+								))}
+							</SortableContext>
 						) : (
 							!isPreviewMode && (
 								<div
-									className="text-center text-muted-foreground text-sm py-8 border-2 border-dashed border-border/50 rounded-lg">
+									className="text-center text-muted-foreground text-sm py-8 border-2 border-dashed border-border/50 rounded-lg"
+								>
 									Drop components here
 								</div>
 							)
 						)}
 					</div>
 				);
-			
+
 			case 'grid':
 				return (
 					<div
-						ref={setDroppableRef}
+						ref={setContainerNodeRef}
 						style={{
 							...styles,
 							display: 'grid',
@@ -233,18 +321,21 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 						)}
 					>
 						{component.children && component.children.length > 0 ? (
-							component.children.map((child, idx) => (
-								<CanvasComponent key={child.id} component={child} index={idx} parentId={component.id}/>
-							))
+							<SortableContext
+								items={component.children.map(c => c.id)}
+								strategy={rectSortingStrategy}
+							>
+								{component.children.map((child, idx) => (
+									<CanvasComponent key={child.id} component={child} index={idx} parentId={component.id}/>
+								))}
+							</SortableContext>
 						) : (
 							!isPreviewMode && (
 								<>
-									<div
-										className="text-center text-muted-foreground text-sm py-8 border-2 border-dashed border-border/50 rounded-lg">
+									<div className="text-center text-muted-foreground text-sm py-8 border-2 border-dashed border-border/50 rounded-lg">
 										Column 1
 									</div>
-									<div
-										className="text-center text-muted-foreground text-sm py-8 border-2 border-dashed border-border/50 rounded-lg">
+									<div className="text-center text-muted-foreground text-sm py-8 border-2 border-dashed border-border/50 rounded-lg">
 										Column 2
 									</div>
 								</>
@@ -252,33 +343,34 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 						)}
 					</div>
 				);
-			
+
 			default:
 				return <div style={styles}>{component.props.content}</div>;
 		}
 	};
-	
+
 	if (isPreviewMode) {
 		return renderContent();
 	}
-	
+
 	return (
 		<div
 			ref={setSortableRef}
+			data-component-id={component.id}
 			style={style}
 			{...attributes}
 			className={cn(
-				'relative group',
+				'relative',
 				isDragging && 'opacity-50 z-50',
 				isSelected && 'ring-2 ring-primary ring-offset-2 ring-offset-background rounded-lg'
 			)}
 			onClick={handleClick}
 		>
-			{/* Drag handle and actions - fixed z-index */}
+			{/* Drag handle and actions */}
 			<div
 				className={cn(
-					'absolute -left-10 top-0 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-50',
-					isSelected && 'opacity-100'
+					'absolute -left-10 top-0 flex flex-col gap-1 transition-opacity z-50',
+					(hoveredComponentId === component.id || isSelected) ? 'opacity-100' : 'opacity-0'
 				)}
 			>
 				<div
@@ -304,8 +396,28 @@ export function CanvasComponent({component, index, parentId}: CanvasComponentPro
 					<Trash2 className="w-3 h-3"/>
 				</Button>
 			</div>
-			
-			{renderContent()}
+
+			{/* Resize handle (only on selected) */}
+			{isSelected && (
+				<div
+					onPointerDown={handleResizeStart}
+					className={cn(
+						'absolute bottom-0 right-0 z-40 h-3 w-3 cursor-se-resize rounded-sm border border-border bg-card transition-opacity',
+						(hoveredComponentId === component.id || isSelected) ? 'opacity-100' : 'opacity-0',
+						isResizing && 'opacity-80'
+					)}
+					aria-label="Resize"
+					title="Resize"
+				/>
+			)}
+
+			{isContainer ? renderContent() : (
+				<div ref={(node) => {
+					contentRef.current = node;
+				}}>
+					{renderContent()}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -322,3 +434,4 @@ function getFlexValue(value?: string): string | undefined {
 	};
 	return mapping[value] || value;
 }
+
