@@ -8,7 +8,9 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/s
 import {Separator} from '@/shared/ui/separator';
 import {Switch} from '@/shared/ui/switch';
 import {getComponentDefinition} from '@/features/builder/data/models/componentDefinitions';
-import {Box, FormInput, LayoutGrid, Link, Palette, Play, Settings, Trash2} from 'lucide-react';
+import {VariableInput} from '@/features/builder/views/components/VariableInput';
+import {Box, FormInput, LayoutGrid, Link, Palette, Play, Settings, Trash2, Database} from 'lucide-react';
+import {Link as RouterLink} from 'react-router-dom';
 
 export function PropertiesPanel() {
 	const {selectedComponent, updateComponent, deleteComponent} = useBuilderStore();
@@ -107,16 +109,15 @@ export function PropertiesPanel() {
 							<div className="space-y-2 mb-4">
 								<Label className="text-xs">Text Content</Label>
 								{selectedComponent.type === 'paragraph' ? (
-									<Textarea
+									<VariableInput
 										value={selectedComponent.props.content || ''}
-										onChange={(e) => handlePropChange('content', e.target.value)}
-										className="min-h-[100px] bg-secondary border-border"
+										onChange={(v) => handlePropChange('content', v)}
+										multiline
 									/>
 								) : (
-									<Input
+									<VariableInput
 										value={selectedComponent.props.content || ''}
-										onChange={(e) => handlePropChange('content', e.target.value)}
-										className="bg-secondary border-border"
+										onChange={(v) => handlePropChange('content', v)}
 									/>
 								)}
 							</div>
@@ -168,19 +169,17 @@ export function PropertiesPanel() {
 							<>
 								<div className="space-y-2 mb-4">
 									<Label className="text-xs">Image URL</Label>
-									<Input
+									<VariableInput
 										value={selectedComponent.props.src || ''}
-										onChange={(e) => handlePropChange('src', e.target.value)}
-										placeholder="https://..."
-										className="bg-secondary border-border"
+										onChange={(v) => handlePropChange('src', v)}
+										placeholder="https://... or {{datasource.url}}"
 									/>
 								</div>
 								<div className="space-y-2 mb-4">
 									<Label className="text-xs">Alt Text</Label>
-									<Input
+									<VariableInput
 										value={selectedComponent.props.alt || ''}
-										onChange={(e) => handlePropChange('alt', e.target.value)}
-										className="bg-secondary border-border"
+										onChange={(v) => handlePropChange('alt', v)}
 									/>
 								</div>
 							</>

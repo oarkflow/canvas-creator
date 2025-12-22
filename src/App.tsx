@@ -6,6 +6,8 @@ import {BrowserRouter, Route, Routes} from "react-router-dom";
 import {HelmetProvider} from 'react-helmet-async';
 import {loadRoutes} from "./core/routing/route-loader";
 import Index from "./features/builder/pages";
+import DataSourcesPage from "./features/builder/pages/DataSourcesPage";
+import RenderPage from "./features/builder/pages/RenderPage";
 import NotFound from "@/core/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +22,8 @@ const App = () => (
 				<BrowserRouter>
 					<Routes>
 						<Route path="/" element={<Index/>}/>
+						<Route path="/datasources" element={<DataSourcesPage/>}/>
+						<Route path="/render" element={<RenderPage/>}/>
 						{/* Auto-discovered routes from init/index.ts files */}
 						{autoRoutes.map((route, index) => (
 							<Route key={index} path={route.path} element={route.element}/>
