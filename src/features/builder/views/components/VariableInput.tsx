@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
+import { setup, render, mutable, derived, effect } from '@anchorlib/react';
 import { Input } from '@/shared/ui/input';
 import { Textarea } from '@/shared/ui/textarea';
 import { useDataSourceStore } from '@/features/builder/state/stores/dataSourceStore';
@@ -20,56 +21,55 @@ interface AutocompleteItem {
     type: 'datasource' | 'field';
 }
 
-export function VariableInput({
-    value,
-    onChange,
-    placeholder,
-    multiline = false,
-    className,
-}: VariableInputProps) {
+export const VariableInput = setup((props: VariableInputProps) => {
+    const { value, onChange, placeholder, multiline = false, className } = props;
     const dataSources = useDataSourceStore((state) => state.dataSources);
     const loadFromStorage = useDataSourceStore((state) => state.loadFromStorage);
 
-    const [showAutocomplete, setShowAutocomplete] = useState(false);
-    const [autocompleteFilter, setAutocompleteFilter] = useState('');
-    const [cursorPosition, setCursorPosition] = useState(0);
-    const [selectedIndex, setSelectedIndex] = useState(0);
+    // Local mutable state (DSV style)
+    const state = mutable({
+        showAutocomplete: false,
+        autocompleteFilter: '',
+        cursorPosition: 0,
+        selectedIndex: 0,
+        localValue: value,
+    });
+
     const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
     const autocompleteRef = useRef<HTMLDivElement>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const hasLoadedRef = useRef(false);
 
     // Load data sources only once on mount
-    useEffect(() => {
+    effect(() => {
         if (!hasLoadedRef.current) {
             loadFromStorage();
             hasLoadedRef.current = true;
         }
-    }, [loadFromStorage]);
+    });
 
-    const hasVars = hasVariables(value);
-    const variables = extractVariables(value);
+    // Use local mutable buffer for live editing
+    const hasVars = hasVariables(state.localValue);
+    const variables = extractVariables(state.localValue);
 
-    // Local editing buffer to avoid updating the global store on every keystroke
-    const [localValue, setLocalValue] = useState(value);
     const commitTimer = useRef<number | null>(null);
 
     // Keep local buffer in sync when parent value changes (but don't clobber during edit)
-    useEffect(() => {
-        if (value !== localValue) {
-            setLocalValue(value);
+    effect(() => {
+        if (value !== state.localValue) {
+            state.localValue = value;
         }
-    }, [value, localValue]);
+    });
 
     // Cleanup timer on unmount
-    useEffect(() => {
+    effect(() => {
         return () => {
             if (commitTimer.current) clearTimeout(commitTimer.current);
         };
-    }, []);
+    });
 
-    // Get all available paths from data sources
-    const availablePaths = useMemo(() => {
+    // Get all available paths from data sources (derived)
+    const availablePaths = derived(() => {
         const getDataSourcePaths = (dsName: string, data: unknown, prefix = ''): AutocompleteItem[] => {
             const items: AutocompleteItem[] = [];
 
@@ -124,17 +124,17 @@ export function VariableInput({
         }
 
         return allItems;
-    }, [dataSources]);
+    });
 
-    // Filter autocomplete items based on current filter
-    const filteredItems = useMemo(() => {
-        if (!autocompleteFilter) return availablePaths;
+    // Filter autocomplete items based on current filter (derived)
+    const filteredItems = derived(() => {
+        if (!state.autocompleteFilter) return availablePaths.value;
 
-        const lowerFilter = autocompleteFilter.toLowerCase();
-        return availablePaths.filter((item) =>
+        const lowerFilter = state.autocompleteFilter.toLowerCase();
+        return availablePaths.value.filter((item) =>
             item.value.toLowerCase().includes(lowerFilter)
         );
-    }, [availablePaths, autocompleteFilter]);
+    });
 
     // Find the variable being typed (between {{ and cursor)
     const getVariableContext = useCallback((text: string, cursor: number) => {
@@ -164,10 +164,10 @@ export function VariableInput({
         // Track whether input had focus so we can restore it after parent updates
         wasFocusedRef.current = document.activeElement === inputRef.current;
 
-        setCursorPosition(cursor);
+        state.cursorPosition = cursor;
 
         // Update local buffer immediately so input remains responsive
-        setLocalValue(newValue);
+        state.localValue = newValue;
 
         // debounce commit to parent store to avoid re-render storms
         if (commitTimer.current) clearTimeout(commitTimer.current);
@@ -180,36 +180,36 @@ export function VariableInput({
         const context = getVariableContext(newValue, cursor);
 
         if (context) {
-            setAutocompleteFilter(context.filter);
-            setShowAutocomplete(true);
-            setSelectedIndex(0);
+            state.autocompleteFilter = context.filter;
+            state.showAutocomplete = true;
+            state.selectedIndex = 0;
         } else {
-            setShowAutocomplete(false);
-            setAutocompleteFilter('');
+            state.showAutocomplete = false;
+            state.autocompleteFilter = '';
         }
     }, [onChange, getVariableContext]);
 
     const insertVariable = useCallback((varPath: string) => {
-        const context = getVariableContext(localValue, cursorPosition);
+        const context = getVariableContext(state.localValue, state.cursorPosition);
 
         let newValue: string;
         if (context) {
             // Replace from {{ to cursor with the selected variable
-            const before = localValue.slice(0, context.start);
-            const after = localValue.slice(cursorPosition);
+            const before = state.localValue.slice(0, context.start);
+            const after = state.localValue.slice(state.cursorPosition);
             newValue = `${before}{{${varPath}}}${after}`;
         } else {
             // Just append
-            newValue = localValue + `{{${varPath}}}`;
+            newValue = state.localValue + `{{${varPath}}}`;
         }
 
         // update local buffer and commit immediately
-        setLocalValue(newValue);
+        state.localValue = newValue;
         if (commitTimer.current) clearTimeout(commitTimer.current);
         onChange(newValue);
 
-        setShowAutocomplete(false);
-        setAutocompleteFilter('');
+        state.showAutocomplete = false;
+        state.autocompleteFilter = '';
 
         // after updating, refocus and restore caret just after inserted text
         setTimeout(() => {
@@ -218,29 +218,29 @@ export function VariableInput({
             const pos = (context ? (context.start + 2 + varPath.length + 2) : newValue.length);
             el.focus();
             try { el.setSelectionRange(pos, pos); } catch { }
-            setCursorPosition(pos);
+            state.cursorPosition = pos;
         }, 0);
-    }, [localValue, cursorPosition, getVariableContext, onChange]);
+    }, [getVariableContext, onChange]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         // Let autocomplete keys be handled when it's open
-        if (showAutocomplete && filteredItems.length > 0) {
+        if (state.showAutocomplete && filteredItems.value.length > 0) {
             switch (e.key) {
                 case 'ArrowDown':
                     e.preventDefault();
-                    setSelectedIndex((prev) => (prev + 1) % filteredItems.length);
+                    state.selectedIndex = (state.selectedIndex + 1) % filteredItems.value.length;
                     return;
                 case 'ArrowUp':
                     e.preventDefault();
-                    setSelectedIndex((prev) => (prev - 1 + filteredItems.length) % filteredItems.length);
+                    state.selectedIndex = (state.selectedIndex - 1 + filteredItems.value.length) % filteredItems.value.length;
                     return;
                 case 'Enter':
                 case 'Tab':
                     e.preventDefault();
-                    insertVariable(filteredItems[selectedIndex].value);
+                    insertVariable(filteredItems.value[state.selectedIndex].value);
                     return;
                 case 'Escape':
-                    setShowAutocomplete(false);
+                    state.showAutocomplete = false;
                     return;
             }
         }
@@ -248,25 +248,25 @@ export function VariableInput({
         // When autocomplete is closed, allow Enter to commit immediately
         if (e.key === 'Enter') {
             if (commitTimer.current) clearTimeout(commitTimer.current);
-            onChange(localValue);
+            onChange(state.localValue);
             return;
         }
-    }, [showAutocomplete, filteredItems, selectedIndex, insertVariable, onChange, localValue]);
+    }, [insertVariable, onChange]);
 
     // Scroll selected item into view
-    useEffect(() => {
-        if (showAutocomplete && autocompleteRef.current) {
-            const selected = autocompleteRef.current.querySelector(`[data-index="${selectedIndex}"]`);
+    effect(() => {
+        if (state.showAutocomplete && autocompleteRef.current) {
+            const selected = autocompleteRef.current.querySelector(`[data-index="${state.selectedIndex}"]`);
             selected?.scrollIntoView({ block: 'nearest' });
         }
-    }, [selectedIndex, showAutocomplete]);
+    });
 
     // Preserve caret position and restore focus after parent updates value
-    useEffect(() => {
+    effect(() => {
         const el = inputRef.current as (HTMLInputElement | HTMLTextAreaElement | null);
         if (!el) return;
 
-        const pos = Math.min(cursorPosition, el.value.length);
+        const pos = Math.min(state.cursorPosition, el.value.length);
 
         // If the input was focused before update, restore focus and selection
         if (wasFocusedRef.current) {
@@ -288,10 +288,10 @@ export function VariableInput({
                 // ignore setSelectionRange errors
             }
         }
-    }, [value, cursorPosition]);
+    });
 
     // Close autocomplete on outside click
-    useEffect(() => {
+    effect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             const target = e.target as Node;
             if (
@@ -299,38 +299,38 @@ export function VariableInput({
                 inputRef.current && !inputRef.current.contains(target) &&
                 wrapperRef.current && !wrapperRef.current.contains(target)
             ) {
-                setShowAutocomplete(false);
+                state.showAutocomplete = false;
             }
         };
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    });
 
     const InputComponent = multiline ? Textarea : Input;
 
     const openAutocomplete = useCallback(() => {
         const el = inputRef.current as (HTMLInputElement | HTMLTextAreaElement | null);
-        const pos = (el?.selectionStart ?? value.length);
-        setCursorPosition(pos);
-        const context = getVariableContext(value, pos);
-        if (context) setAutocompleteFilter(context.filter);
-        else setAutocompleteFilter('');
-        setSelectedIndex(0);
-        setShowAutocomplete(true);
+        const pos = (el?.selectionStart ?? state.localValue.length);
+        state.cursorPosition = pos;
+        const context = getVariableContext(state.localValue, pos);
+        if (context) state.autocompleteFilter = context.filter;
+        else state.autocompleteFilter = '';
+        state.selectedIndex = 0;
+        state.showAutocomplete = true;
         // ensure focus and caret
         setTimeout(() => {
             el?.focus();
             try { el?.setSelectionRange(pos, pos); } catch { }
         }, 0);
-    }, [getVariableContext, value]);
+    }, [getVariableContext]);
 
-    return (
+    return render(() => (
         <div className="relative" ref={wrapperRef}>
             <div className="flex gap-1">
                 <InputComponent
                     ref={inputRef as never}
-                    value={localValue}
+                    value={state.localValue}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
                     onBlur={() => {
@@ -339,7 +339,7 @@ export function VariableInput({
                             clearTimeout(commitTimer.current);
                             commitTimer.current = null;
                         }
-                        if (localValue !== value) onChange(localValue);
+                        if (state.localValue !== value) onChange(state.localValue);
                     }}
                     placeholder={placeholder}
                     className={cn(
@@ -365,7 +365,7 @@ export function VariableInput({
             </div>
 
             {/* Autocomplete dropdown */}
-            {showAutocomplete && (
+            {state.showAutocomplete && (
                 <div
                     ref={autocompleteRef}
                     className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-50 overflow-hidden"
@@ -373,11 +373,11 @@ export function VariableInput({
                     <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/50">
                         <Database className="w-3 h-3 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">
-                            {autocompleteFilter ? `Filtering: "${autocompleteFilter}"` : 'Select a variable'}
+                            {state.autocompleteFilter ? `Filtering: "${state.autocompleteFilter}"` : 'Select a variable'}
                         </span>
                     </div>
 
-                    {filteredItems.length === 0 ? (
+                    {filteredItems.value.length === 0 ? (
                         <div className="px-3 py-4 text-center">
                             <p className="text-xs text-muted-foreground">
                                 No matching variables found.
@@ -385,23 +385,23 @@ export function VariableInput({
                             <a
                                 href="/datasources"
                                 className="text-xs text-primary hover:underline"
-                                onClick={() => setShowAutocomplete(false)}
+                                onClick={() => (state.showAutocomplete = false)}
                             >
                                 Add data sources
                             </a>
                         </div>
                     ) : (
                         <div className="max-h-[200px] overflow-y-auto">
-                            {filteredItems.map((item, index) => (
+                            {filteredItems.value.map((item, index) => (
                                 <button
                                     key={item.value}
                                     data-index={index}
                                     className={cn(
                                         'w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors',
-                                        index === selectedIndex ? 'bg-primary/10 text-primary' : 'hover:bg-secondary'
+                                        index === state.selectedIndex ? 'bg-primary/10 text-primary' : 'hover:bg-secondary'
                                     )}
                                     onClick={() => insertVariable(item.value)}
-                                    onMouseEnter={() => setSelectedIndex(index)}
+                                    onMouseEnter={() => (state.selectedIndex = index)}
                                 >
                                     <ChevronRight className={cn(
                                         'w-3 h-3',
@@ -421,7 +421,7 @@ export function VariableInput({
             )}
 
             {/* Show detected variables */}
-            {hasVars && !showAutocomplete && (
+            {hasVars && !state.showAutocomplete && (
                 <div className="mt-1 flex flex-wrap gap-1">
                     {variables.map((v, i) => (
                         <span
@@ -434,5 +434,5 @@ export function VariableInput({
                 </div>
             )}
         </div>
-    );
-}
+    ), 'VariableInput');
+});
