@@ -21,9 +21,10 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
-import { ChevronDown, Download, Eye, EyeOff, FileText, LayoutTemplate, Loader2, Plus, Save, Trash2, } from 'lucide-react';
+import { ChevronDown, Database, Download, Eye, EyeOff, FileText, LayoutTemplate, Loader2, Play, Plus, Save, Trash2, } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageType } from '@/features/builder/types/builder';
+import { Link } from 'react-router-dom';
 
 export const BuilderToolbar = setup(() => {
     const {
