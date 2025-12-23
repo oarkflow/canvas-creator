@@ -128,12 +128,35 @@ export const VariableInput = setup((props: VariableInputProps) => {
 
     // Filter autocomplete items based on current filter (derived)
     const filteredItems = derived(() => {
-        if (!state.autocompleteFilter) return availablePaths.value;
+        const filter = state.autocompleteFilter.trim();
+        if (!filter) return availablePaths.value;
 
-        const lowerFilter = state.autocompleteFilter.toLowerCase();
-        return availablePaths.value.filter((item) =>
-            item.value.toLowerCase().includes(lowerFilter)
+        // If the user typed a datasource prefix ("ds" or "ds.") prefer narrowing to that datasource
+        const [dsPrefixRaw, ...rest] = filter.split('.');
+        const dsPrefix = dsPrefixRaw?.trim();
+        const restFilter = rest.join('.').toLowerCase();
+
+        const lowerFilter = filter.toLowerCase();
+
+        const datasourceMatches = availablePaths.value.filter(
+            (item) => item.type === 'datasource' && item.value.toLowerCase().includes(lowerFilter)
         );
+
+        // If user started typing "datasource." only show fields for that datasource
+        const scopedFieldMatches = dsPrefix && filter.includes('.')
+            ? availablePaths.value.filter((item) =>
+                item.type === 'field' &&
+                item.value.toLowerCase().startsWith(dsPrefix.toLowerCase() + '.') &&
+                item.value.toLowerCase().includes((dsPrefix.toLowerCase() + '.' + restFilter).replace(/\.+$/, '.'))
+            )
+            : [];
+
+        const fieldMatches = !filter.includes('.')
+            ? availablePaths.value.filter((item) => item.type === 'field' && item.value.toLowerCase().includes(lowerFilter))
+            : scopedFieldMatches;
+
+        // Datasources first, then fields
+        return [...datasourceMatches, ...fieldMatches];
     });
 
     // Find the variable being typed (between {{ and cursor)
@@ -261,34 +284,9 @@ export const VariableInput = setup((props: VariableInputProps) => {
         }
     });
 
-    // Preserve caret position and restore focus after parent updates value
-    effect(() => {
-        const el = inputRef.current as (HTMLInputElement | HTMLTextAreaElement | null);
-        if (!el) return;
-
-        const pos = Math.min(state.cursorPosition, el.value.length);
-
-        // If the input was focused before update, restore focus and selection
-        if (wasFocusedRef.current) {
-            try {
-                el.focus();
-                el.setSelectionRange(pos, pos);
-            } catch (e) {
-                // ignore setSelectionRange errors
-            }
-            wasFocusedRef.current = false;
-            return;
-        }
-
-        // Otherwise, only restore selection if the element still has focus
-        if (document.activeElement === el) {
-            try {
-                el.setSelectionRange(pos, pos);
-            } catch (e) {
-                // ignore setSelectionRange errors
-            }
-        }
-    });
+    // NOTE: We intentionally do NOT auto-focus/restore focus on every render.
+    // Doing so can steal focus from other inputs in the Properties Panel.
+    // We keep editing responsive via local buffer + debounced commit instead.
 
     // Close autocomplete on outside click
     effect(() => {
@@ -339,6 +337,8 @@ export const VariableInput = setup((props: VariableInputProps) => {
                             clearTimeout(commitTimer.current);
                             commitTimer.current = null;
                         }
+                        wasFocusedRef.current = false;
+                        state.showAutocomplete = false;
                         if (state.localValue !== value) onChange(state.localValue);
                     }}
                     placeholder={placeholder}
