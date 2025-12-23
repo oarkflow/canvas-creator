@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { setup, render, derived, mutable, effect } from '@anchorlib/react';
 import { componentDefinitions } from '@/features/builder/data/models/componentDefinitions';
 import { builderTemplates } from '@/features/builder/data/models/templateDefinitions';
 import { DraggableComponent } from './components/DraggableComponent';
@@ -12,31 +12,31 @@ const STORAGE_KEY = 'builder.sidebar.tab';
 
 type SidebarTab = 'components' | 'templates';
 
-export function ComponentPalette() {
-    const layoutComponents = useMemo(() => componentDefinitions.filter(d => d.category === 'layout'), []);
-    const basicComponents = useMemo(() => componentDefinitions.filter(d => d.category === 'basic'), []);
-    const formComponents = useMemo(() => componentDefinitions.filter(d => d.category === 'form'), []);
-    const mediaComponents = useMemo(() => componentDefinitions.filter(d => d.category === 'media'), []);
+export const ComponentPalette = setup(() => {
+    const layoutComponents = derived(() => componentDefinitions.filter(d => d.category === 'layout'));
+    const basicComponents = derived(() => componentDefinitions.filter(d => d.category === 'basic'));
+    const formComponents = derived(() => componentDefinitions.filter(d => d.category === 'form'));
+    const mediaComponents = derived(() => componentDefinitions.filter(d => d.category === 'media'));
 
     const addComponent = useBuilderStore((s) => s.addComponent);
 
-    const [tab, setTab] = useState<SidebarTab>(() => {
-        const saved = window.localStorage.getItem(STORAGE_KEY);
-        return (saved === 'templates' || saved === 'components') ? (saved as SidebarTab) : 'components';
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    const state = mutable({
+        tab: (saved === 'templates' || saved === 'components') ? (saved as SidebarTab) : ('components' as SidebarTab),
     });
 
-    useEffect(() => {
-        window.localStorage.setItem(STORAGE_KEY, tab);
-    }, [tab]);
+    effect(() => {
+        window.localStorage.setItem(STORAGE_KEY, state.tab);
+    });
 
-    return (
+    return render(() => (
         <div className="w-64 bg-card border-r border-border flex flex-col">
             <div className="p-4 border-b border-border">
                 <h2 className="text-sm font-semibold text-foreground">Library</h2>
                 <p className="text-xs text-muted-foreground mt-1">Drag components or insert templates</p>
             </div>
 
-            <Tabs value={tab} onValueChange={(v) => setTab(v as SidebarTab)} className="flex-1 flex flex-col overflow-hidden">
+            <Tabs value={state.tab} onValueChange={(v) => (state.tab = v as SidebarTab)} className="flex-1 flex flex-col overflow-hidden">
                 <div className="p-3 border-b border-border">
                     <TabsList className="w-full grid grid-cols-2">
                         <TabsTrigger value="components">Components</TabsTrigger>
@@ -50,7 +50,7 @@ export function ComponentPalette() {
                             <div>
                                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Layout</h3>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {layoutComponents.map(def => (
+                                    {layoutComponents.value.map(def => (
                                         <DraggableComponent key={def.type} definition={def} />
                                     ))}
                                 </div>
@@ -61,7 +61,7 @@ export function ComponentPalette() {
                             <div>
                                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Basic</h3>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {basicComponents.map(def => (
+                                    {basicComponents.value.map(def => (
                                         <DraggableComponent key={def.type} definition={def} />
                                     ))}
                                 </div>
@@ -72,7 +72,7 @@ export function ComponentPalette() {
                             <div>
                                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Form</h3>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {formComponents.map(def => (
+                                    {formComponents.value.map(def => (
                                         <DraggableComponent key={def.type} definition={def} />
                                     ))}
                                 </div>
@@ -83,7 +83,7 @@ export function ComponentPalette() {
                             <div>
                                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Media</h3>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {mediaComponents.map(def => (
+                                    {mediaComponents.value.map(def => (
                                         <DraggableComponent key={def.type} definition={def} />
                                     ))}
                                 </div>
@@ -102,7 +102,7 @@ export function ComponentPalette() {
                                     className="w-full text-left rounded-lg border border-border bg-card hover:bg-secondary/50 transition-colors p-3"
                                     onClick={() => {
                                         addComponent(t.build());
-                                        setTab('templates');
+                                        state.tab = 'templates';
                                     }}
                                 >
                                     <div className="flex items-start gap-3">
@@ -130,6 +130,5 @@ export function ComponentPalette() {
                 </TabsContent>
             </Tabs>
         </div>
-    );
-}
-
+    ), 'ComponentPalette');
+}, 'ComponentPalette');

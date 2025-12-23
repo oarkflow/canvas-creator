@@ -54,13 +54,6 @@ export const VariableInput = setup((props: VariableInputProps) => {
 
     const commitTimer = useRef<number | null>(null);
 
-    // Keep local buffer in sync when parent value changes (but don't clobber during edit)
-    effect(() => {
-        if (value !== state.localValue) {
-            state.localValue = value;
-        }
-    });
-
     // Cleanup timer on unmount
     effect(() => {
         return () => {
