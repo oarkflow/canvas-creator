@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { componentDefinitions } from '@/features/builder/data/models/componentDefinitions';
 import { builderTemplates } from '@/features/builder/data/models/templateDefinitions';
 import { DraggableComponent } from './components/DraggableComponent';
@@ -7,13 +8,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { Button } from '@/shared/ui/button';
 import { useBuilderStore } from '@/features/builder/state/stores/builderStore';
 
+const STORAGE_KEY = 'builder.sidebar.tab';
+
+type SidebarTab = 'components' | 'templates';
+
 export function ComponentPalette() {
-    const layoutComponents = componentDefinitions.filter(d => d.category === 'layout');
-    const basicComponents = componentDefinitions.filter(d => d.category === 'basic');
-    const formComponents = componentDefinitions.filter(d => d.category === 'form');
-    const mediaComponents = componentDefinitions.filter(d => d.category === 'media');
+    const layoutComponents = useMemo(() => componentDefinitions.filter(d => d.category === 'layout'), []);
+    const basicComponents = useMemo(() => componentDefinitions.filter(d => d.category === 'basic'), []);
+    const formComponents = useMemo(() => componentDefinitions.filter(d => d.category === 'form'), []);
+    const mediaComponents = useMemo(() => componentDefinitions.filter(d => d.category === 'media'), []);
 
     const addComponent = useBuilderStore((s) => s.addComponent);
+
+    const [tab, setTab] = useState<SidebarTab>(() => {
+        const saved = window.localStorage.getItem(STORAGE_KEY);
+        return (saved === 'templates' || saved === 'components') ? (saved as SidebarTab) : 'components';
+    });
+
+    useEffect(() => {
+        window.localStorage.setItem(STORAGE_KEY, tab);
+    }, [tab]);
 
     return (
         <div className="w-64 bg-card border-r border-border flex flex-col">
@@ -22,7 +36,7 @@ export function ComponentPalette() {
                 <p className="text-xs text-muted-foreground mt-1">Drag components or insert templates</p>
             </div>
 
-            <Tabs defaultValue="components" className="flex-1 flex flex-col overflow-hidden">
+            <Tabs value={tab} onValueChange={(v) => setTab(v as SidebarTab)} className="flex-1 flex flex-col overflow-hidden">
                 <div className="p-3 border-b border-border">
                     <TabsList className="w-full grid grid-cols-2">
                         <TabsTrigger value="components">Components</TabsTrigger>
@@ -86,7 +100,10 @@ export function ComponentPalette() {
                                     key={t.id}
                                     type="button"
                                     className="w-full text-left rounded-lg border border-border bg-card hover:bg-secondary/50 transition-colors p-3"
-                                    onClick={() => addComponent(t.build())}
+                                    onClick={() => {
+                                        addComponent(t.build());
+                                        setTab('templates');
+                                    }}
                                 >
                                     <div className="flex items-start gap-3">
                                         <div className="h-9 w-9 rounded-md bg-secondary flex items-center justify-center border border-border">
