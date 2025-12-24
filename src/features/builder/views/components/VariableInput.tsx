@@ -1,5 +1,5 @@
-import { useRef, useCallback } from 'react';
 import { setup, render, mutable, derived, effect } from '@anchorlib/react';
+import type React from 'react';
 import { Input } from '@/shared/ui/input';
 import { Textarea } from '@/shared/ui/textarea';
 import { useDataSourceStore } from '@/features/builder/state/stores/dataSourceStore';
@@ -9,7 +9,7 @@ import { cn } from '@/shared/lib/utils';
 
 interface VariableInputProps {
     value: string;
-    onChange: (value: string) => void;
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { value: string } }) => void;
     placeholder?: string;
     multiline?: boolean;
     className?: string;
@@ -35,16 +35,17 @@ export const VariableInput = setup((props: VariableInputProps) => {
         localValue: value,
     });
 
-    const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
-    const autocompleteRef = useRef<HTMLDivElement>(null);
-    const wrapperRef = useRef<HTMLDivElement>(null);
-    const hasLoadedRef = useRef(false);
+    const refs = mutable({
+        input: null as HTMLInputElement | HTMLTextAreaElement | null,
+        autocomplete: null as HTMLDivElement | null,
+        wrapper: null as HTMLDivElement | null,
+        hasLoaded: false,
+    });
 
     // Load data sources only once on mount
     effect(() => {
-        if (!hasLoadedRef.current) {
+        if (!refs.hasLoaded) {
             loadFromStorage();
-            hasLoadedRef.current = true;
         }
     });
 
@@ -52,12 +53,12 @@ export const VariableInput = setup((props: VariableInputProps) => {
     const hasVars = hasVariables(state.localValue);
     const variables = extractVariables(state.localValue);
 
-    const commitTimer = useRef<number | null>(null);
+    const commitTimer = mutable({ value: null as number | null });
 
     // Cleanup timer on unmount
     effect(() => {
         return () => {
-            if (commitTimer.current) clearTimeout(commitTimer.current);
+            if (commitTimer.value) clearTimeout(commitTimer.value);
         };
     });
 
@@ -153,7 +154,7 @@ export const VariableInput = setup((props: VariableInputProps) => {
     });
 
     // Find the variable being typed (between {{ and cursor)
-    const getVariableContext = useCallback((text: string, cursor: number) => {
+    const getVariableContext = (text: string, cursor: number) => {
         // Look backwards from cursor for {{
         const beforeCursor = text.slice(0, cursor);
         const lastOpenBrace = beforeCursor.lastIndexOf('{{');
@@ -168,17 +169,17 @@ export const VariableInput = setup((props: VariableInputProps) => {
             start: lastOpenBrace,
             filter: afterOpenBrace,
         };
-    }, []);
+    };
 
-    const wasFocusedRef = useRef(false);
+    const wasFocused = mutable({ value: false });
 
-    const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const newValue = e.target.value;
         // capture cursor BEFORE scheduling commit
         const cursor = e.target.selectionStart ?? 0;
 
         // Track whether input had focus so we can restore it after parent updates
-        wasFocusedRef.current = document.activeElement === inputRef.current;
+        wasFocused.value = document.activeElement === refs.input;
 
         state.cursorPosition = cursor;
 
@@ -186,10 +187,12 @@ export const VariableInput = setup((props: VariableInputProps) => {
         state.localValue = newValue;
 
         // debounce commit to parent store to avoid re-render storms
-        if (commitTimer.current) clearTimeout(commitTimer.current);
-        commitTimer.current = window.setTimeout(() => {
-            onChange(newValue);
-            commitTimer.current = null;
+        if (commitTimer.value) clearTimeout(commitTimer.value);
+        // pass an event-like object so parent can handle event and extract value safely
+        const evtLike = { target: { value: newValue } };
+        commitTimer.value = window.setTimeout(() => {
+            onChange(evtLike as any);
+            commitTimer.value = null;
         }, 200);
 
         // Check if we should show autocomplete based on the current cursor
@@ -203,9 +206,9 @@ export const VariableInput = setup((props: VariableInputProps) => {
             state.showAutocomplete = false;
             state.autocompleteFilter = '';
         }
-    }, [onChange, getVariableContext]);
+    };
 
-    const insertVariable = useCallback((varPath: string) => {
+    const insertVariable = (varPath: string) => {
         const context = getVariableContext(state.localValue, state.cursorPosition);
 
         let newValue: string;
@@ -221,24 +224,24 @@ export const VariableInput = setup((props: VariableInputProps) => {
 
         // update local buffer and commit immediately
         state.localValue = newValue;
-        if (commitTimer.current) clearTimeout(commitTimer.current);
-        onChange(newValue);
+        if (commitTimer.value) clearTimeout(commitTimer.value);
+        onChange({ target: { value: newValue } } as any);
 
         state.showAutocomplete = false;
         state.autocompleteFilter = '';
 
         // after updating, refocus and restore caret just after inserted text
         setTimeout(() => {
-            const el = inputRef.current as (HTMLInputElement | HTMLTextAreaElement | null);
+            const el = refs.input as (HTMLInputElement | HTMLTextAreaElement | null);
             if (!el) return;
             const pos = (context ? (context.start + 2 + varPath.length + 2) : newValue.length);
             el.focus();
             try { el.setSelectionRange(pos, pos); } catch { }
             state.cursorPosition = pos;
         }, 0);
-    }, [getVariableContext, onChange]);
+    };
 
-    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const handleKeyDown = (e: React.KeyboardEvent) => {
         // Let autocomplete keys be handled when it's open
         if (state.showAutocomplete && filteredItems.value.length > 0) {
             switch (e.key) {
@@ -263,16 +266,16 @@ export const VariableInput = setup((props: VariableInputProps) => {
 
         // When autocomplete is closed, allow Enter to commit immediately
         if (e.key === 'Enter') {
-            if (commitTimer.current) clearTimeout(commitTimer.current);
-            onChange(state.localValue);
+            if (commitTimer.value) clearTimeout(commitTimer.value);
+            onChange({ target: { value: state.localValue } } as any);
             return;
         }
-    }, [insertVariable, onChange]);
+    };
 
     // Scroll selected item into view
     effect(() => {
-        if (state.showAutocomplete && autocompleteRef.current) {
-            const selected = autocompleteRef.current.querySelector(`[data-index="${state.selectedIndex}"]`);
+        if (state.showAutocomplete && refs.autocomplete) {
+            const selected = refs.autocomplete.querySelector(`[data-index="${state.selectedIndex}"]`);
             selected?.scrollIntoView({ block: 'nearest' });
         }
     });
@@ -286,9 +289,9 @@ export const VariableInput = setup((props: VariableInputProps) => {
         const handleClickOutside = (e: MouseEvent) => {
             const target = e.target as Node;
             if (
-                autocompleteRef.current && !autocompleteRef.current.contains(target) &&
-                inputRef.current && !inputRef.current.contains(target) &&
-                wrapperRef.current && !wrapperRef.current.contains(target)
+                refs.autocomplete && !refs.autocomplete.contains(target) &&
+                refs.input && !refs.input.contains(target) &&
+                refs.wrapper && !refs.wrapper.contains(target)
             ) {
                 state.showAutocomplete = false;
             }
@@ -300,8 +303,8 @@ export const VariableInput = setup((props: VariableInputProps) => {
 
     const InputComponent = multiline ? Textarea : Input;
 
-    const openAutocomplete = useCallback(() => {
-        const el = inputRef.current as (HTMLInputElement | HTMLTextAreaElement | null);
+    const openAutocomplete = () => {
+        const el = refs.input as (HTMLInputElement | HTMLTextAreaElement | null);
         const pos = (el?.selectionStart ?? state.localValue.length);
         state.cursorPosition = pos;
         const context = getVariableContext(state.localValue, pos);
@@ -314,25 +317,25 @@ export const VariableInput = setup((props: VariableInputProps) => {
             el?.focus();
             try { el?.setSelectionRange(pos, pos); } catch { }
         }, 0);
-    }, [getVariableContext]);
+    };
 
     return render(() => (
-        <div className="relative" ref={wrapperRef}>
+        <div className="relative" ref={(el) => (refs.wrapper = el as any)}>
             <div className="flex gap-1">
                 <InputComponent
-                    ref={inputRef as never}
+                    ref={(el) => (refs.input = el as any)}
                     value={state.localValue}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
                     onBlur={() => {
                         // commit pending changes on blur
-                        if (commitTimer.current) {
-                            clearTimeout(commitTimer.current);
-                            commitTimer.current = null;
+                        if (commitTimer.value) {
+                            clearTimeout(commitTimer.value);
+                            commitTimer.value = null;
                         }
-                        wasFocusedRef.current = false;
+                        wasFocused.value = false;
                         state.showAutocomplete = false;
-                        if (state.localValue !== value) onChange(state.localValue);
+                        if (state.localValue !== value) onChange({ target: { value: state.localValue } } as any);
                     }}
                     placeholder={placeholder}
                     className={cn(
@@ -360,7 +363,7 @@ export const VariableInput = setup((props: VariableInputProps) => {
             {/* Autocomplete dropdown */}
             {state.showAutocomplete && (
                 <div
-                    ref={autocompleteRef}
+                    ref={(el) => (refs.autocomplete = el as any)}
                     className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-50 overflow-hidden"
                 >
                     <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/50">
