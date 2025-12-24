@@ -1,0 +1,50 @@
+export type DebouncedFunction<T extends (...args: any[]) => any> = {
+    (...args: Parameters<T>): void
+    cancel: () => void
+    flush: () => boolean
+}
+
+export function debounce<T extends (...args: any[]) => any>(
+    fn: T,
+    delay: number
+): DebouncedFunction<T> {
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let lastArgs: Parameters<T> | null = null
+
+    const debounced = (...args: Parameters<T>) => {
+        lastArgs = args
+
+        if (timer) {
+            clearTimeout(timer)
+        }
+
+        timer = setTimeout(() => {
+            timer = null
+            if (lastArgs) {
+                fn(...lastArgs)
+                lastArgs = null
+            }
+        }, delay)
+    }
+
+    debounced.cancel = () => {
+        if (timer) {
+            clearTimeout(timer)
+            timer = null
+        }
+        lastArgs = null
+    }
+
+    debounced.flush = () => {
+        if (timer && lastArgs) {
+            clearTimeout(timer)
+            timer = null
+            fn(...lastArgs)
+            lastArgs = null
+            return true
+        }
+        return false
+    }
+
+    return debounced
+}

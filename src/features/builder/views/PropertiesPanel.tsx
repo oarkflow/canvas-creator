@@ -50,6 +50,14 @@ function createDebouncedCommit<T>(getValue: () => T, onCommit: (v: T) => void, d
     return state;
 }
 
+const resolveInputValue = (valueOrEvent: unknown) => {
+    if (valueOrEvent && typeof valueOrEvent === 'object' && 'target' in valueOrEvent) {
+        const target = (valueOrEvent as { target: { value: unknown } }).target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+        return target?.value;
+    }
+    return valueOrEvent;
+};
+
 export const PropertiesPanel = setup(() => {
     const selectedComponent = useBuilderStore((s) => s.selectedComponent);
     const updateComponent = useBuilderStore((s) => s.updateComponent);
@@ -60,47 +68,23 @@ export const PropertiesPanel = setup(() => {
 
     const handlePropChange = (key: string, valueOrEvent: any) => {
         if (!selectedComponent) return;
+        const nextValue = resolveInputValue(valueOrEvent);
 
-        // If an event was passed, prevent propagation and extract the value
-        if (valueOrEvent && typeof valueOrEvent === 'object' && 'target' in valueOrEvent) {
-            const e = valueOrEvent as React.ChangeEvent<HTMLInputElement | HTMLSelectElement>;
-            console.log(valueOrEvent)
-            try {
-                e.preventDefault();
-                e.stopPropagation();
-                throw new Error('Test');
-            } catch { }
-            const val = (e.target as HTMLInputElement).value;
-            updateComponent(selectedComponent.id, {
-                props: { ...selectedComponent.props, [key]: val },
-            });
-            return;
-        }
+        if (selectedComponent.props?.[key] === nextValue) return;
 
         updateComponent(selectedComponent.id, {
-            props: { ...selectedComponent.props, [key]: valueOrEvent },
+            props: { ...selectedComponent.props, [key]: nextValue },
         });
     };
 
     const handleStyleChange = (key: string, valueOrEvent: any) => {
         if (!selectedComponent) return;
+        const nextValue = resolveInputValue(valueOrEvent);
 
-        // Support passing the raw value or an event. If event, prevent defaults and extract.
-        if (valueOrEvent && typeof valueOrEvent === 'object' && 'target' in valueOrEvent) {
-            const e = valueOrEvent as React.ChangeEvent<HTMLInputElement>;
-            try {
-                e.preventDefault();
-                e.stopPropagation();
-            } catch { }
-            const val = (e.target as HTMLInputElement).value;
-            updateComponent(selectedComponent.id, {
-                styles: { ...selectedComponent.styles, [key]: val },
-            });
-            return;
-        }
+        if (selectedComponent.styles?.[key] === nextValue) return;
 
         updateComponent(selectedComponent.id, {
-            styles: { ...selectedComponent.styles, [key]: valueOrEvent },
+            styles: { ...selectedComponent.styles, [key]: nextValue },
         });
     };
 
@@ -205,9 +189,7 @@ export const PropertiesPanel = setup(() => {
                                 <Label className="text-xs">Text Content</Label>
                                 <VariableInput
                                     value={selectedComponent.props.content || ''}
-                                    onChange={(e) => {
-                                        handlePropChange('content', e)
-                                    }}
+                                    onChange={(value) => handlePropChange('content', value)}
                                     multiline={selectedComponent.type === 'paragraph'}
                                 />
                             </div>
@@ -218,7 +200,7 @@ export const PropertiesPanel = setup(() => {
                                 <Label className="text-xs">Heading Level</Label>
                                 <Select
                                     value={String(selectedComponent.props.level || 1)}
-                                    onValueChange={(v) => handlePropChange('level', { target: { value: parseInt(v) } })}
+                                    onValueChange={(v) => handlePropChange('level', parseInt(v, 10))}
                                 >
                                     <SelectTrigger className="bg-secondary border-border">
                                         <SelectValue />
@@ -238,7 +220,7 @@ export const PropertiesPanel = setup(() => {
                         {selectedComponent.type === 'button' && (
                             <div className="space-y-2 mb-4">
                                 <Label className="text-xs">Variant</Label>
-                                <Select value={selectedComponent.props.variant || 'primary'} onValueChange={(v) => handlePropChange('variant', { target: { value: v } })}>
+                                <Select value={selectedComponent.props.variant || 'primary'} onValueChange={(v) => handlePropChange('variant', v)}>
                                     <SelectTrigger className="bg-secondary border-border">
                                         <SelectValue />
                                     </SelectTrigger>
@@ -258,13 +240,13 @@ export const PropertiesPanel = setup(() => {
                                     <Label className="text-xs">Image URL</Label>
                                     <VariableInput
                                         value={selectedComponent.props.src || ''}
-                                        onChange={(v) => handlePropChange('src', v)}
+                                        onChange={(value) => handlePropChange('src', value)}
                                         placeholder="https://... or {{datasource.url}}"
                                     />
                                 </div>
                                 <div className="space-y-2 mb-4">
                                     <Label className="text-xs">Alt Text</Label>
-                                    <VariableInput value={selectedComponent.props.alt || ''} onChange={(v) => handlePropChange('alt', v)} />
+                                    <VariableInput value={selectedComponent.props.alt || ''} onChange={(value) => handlePropChange('alt', value)} />
                                 </div>
                             </>
                         )}
@@ -315,7 +297,7 @@ export const PropertiesPanel = setup(() => {
                                 {selectedComponent.type === 'input' && (
                                     <div className="space-y-2 mb-4">
                                         <Label className="text-xs">Input Type</Label>
-                                        <Select value={selectedComponent.props.inputType || 'text'} onValueChange={(v) => handlePropChange('inputType', { target: { value: v } })}>
+                                        <Select value={selectedComponent.props.inputType || 'text'} onValueChange={(v) => handlePropChange('inputType', v)}>
                                             <SelectTrigger className="bg-secondary border-border">
                                                 <SelectValue />
                                             </SelectTrigger>
@@ -370,23 +352,23 @@ export const PropertiesPanel = setup(() => {
                                     <>
                                         <div className="flex items-center justify-between mb-4">
                                             <Label className="text-xs">Multi-select</Label>
-                                            <Switch checked={selectedComponent.props.multiSelect || false} onCheckedChange={(v) => handlePropChange('multiSelect', { target: { value: v } })} />
+                                            <Switch checked={selectedComponent.props.multiSelect || false} onCheckedChange={(checked) => handlePropChange('multiSelect', checked)} />
                                         </div>
                                         <div className="flex items-center justify-between mb-4">
                                             <Label className="text-xs">Filterable</Label>
-                                            <Switch checked={selectedComponent.props.filterable || false} onCheckedChange={(v) => handlePropChange('filterable', { target: { value: v } })} />
+                                            <Switch checked={selectedComponent.props.filterable || false} onCheckedChange={(checked) => handlePropChange('filterable', checked)} />
                                         </div>
                                     </>
                                 )}
 
                                 <div className="flex items-center justify-between mb-4">
                                     <Label className="text-xs">Required</Label>
-                                    <Switch checked={selectedComponent.props.required || false} onCheckedChange={(v) => handlePropChange('required', { target: { value: v } })} />
+                                    <Switch checked={selectedComponent.props.required || false} onCheckedChange={(checked) => handlePropChange('required', checked)} />
                                 </div>
 
                                 <div className="flex items-center justify-between mb-4">
                                     <Label className="text-xs">Disabled</Label>
-                                    <Switch checked={selectedComponent.props.disabled || false} onCheckedChange={(v) => handlePropChange('disabled', { target: { value: v } })} />
+                                    <Switch checked={selectedComponent.props.disabled || false} onCheckedChange={(checked) => handlePropChange('disabled', checked)} />
                                 </div>
                             </section>
                         </>
@@ -416,7 +398,7 @@ export const PropertiesPanel = setup(() => {
                                         </div>
                                         <div className="space-y-2 mb-4">
                                             <Label className="text-xs">Target</Label>
-                                            <Select value={selectedComponent.props.target || '_self'} onValueChange={(v) => handlePropChange('target', { target: { value: v } })}>
+                                            <Select value={selectedComponent.props.target || '_self'} onValueChange={(v) => handlePropChange('target', v)}>
                                                 <SelectTrigger className="bg-secondary border-border">
                                                     <SelectValue />
                                                 </SelectTrigger>
@@ -459,21 +441,21 @@ export const PropertiesPanel = setup(() => {
 
                                         <div className="flex items-center justify-between mb-4">
                                             <Label className="text-xs">Controls</Label>
-                                            <Switch checked={selectedComponent.props.controls ?? true} onCheckedChange={(v) => handlePropChange('controls', { target: { value: v } })} />
+                                            <Switch checked={selectedComponent.props.controls ?? true} onCheckedChange={(checked) => handlePropChange('controls', checked)} />
                                         </div>
                                         <div className="flex items-center justify-between mb-4">
                                             <Label className="text-xs">Autoplay</Label>
-                                            <Switch checked={selectedComponent.props.autoplay || false} onCheckedChange={(v) => handlePropChange('autoplay', { target: { value: v } })} />
+                                            <Switch checked={selectedComponent.props.autoplay || false} onCheckedChange={(checked) => handlePropChange('autoplay', checked)} />
                                         </div>
                                         <div className="flex items-center justify-between mb-4">
                                             <Label className="text-xs">Loop</Label>
-                                            <Switch checked={selectedComponent.props.loop || false} onCheckedChange={(v) => handlePropChange('loop', { target: { value: v } })} />
+                                            <Switch checked={selectedComponent.props.loop || false} onCheckedChange={(checked) => handlePropChange('loop', checked)} />
                                         </div>
 
                                         {selectedComponent.type === 'video' && (
                                             <div className="flex items-center justify-between mb-4">
                                                 <Label className="text-xs">Muted</Label>
-                                                <Switch checked={selectedComponent.props.muted || false} onCheckedChange={(v) => handlePropChange('muted', { target: { value: v } })} />
+                                                <Switch checked={selectedComponent.props.muted || false} onCheckedChange={(checked) => handlePropChange('muted', checked)} />
                                             </div>
                                         )}
                                     </>
@@ -496,7 +478,7 @@ export const PropertiesPanel = setup(() => {
                                     <>
                                         <div className="space-y-2 mb-4">
                                             <Label className="text-xs">Direction</Label>
-                                            <Select value={selectedComponent.styles.flexDirection || 'row'} onValueChange={(v) => handleStyleChange('flexDirection', { target: { value: v } })}>
+                                            <Select value={selectedComponent.styles.flexDirection || 'row'} onValueChange={(v) => handleStyleChange('flexDirection', v)}>
                                                 <SelectTrigger className="bg-secondary border-border">
                                                     <SelectValue />
                                                 </SelectTrigger>
@@ -509,7 +491,7 @@ export const PropertiesPanel = setup(() => {
 
                                         <div className="space-y-2 mb-4">
                                             <Label className="text-xs">Justify Content</Label>
-                                            <Select value={selectedComponent.styles.justifyContent || 'start'} onValueChange={(v) => handleStyleChange('justifyContent', { target: { value: v } })}>
+                                            <Select value={selectedComponent.styles.justifyContent || 'start'} onValueChange={(v) => handleStyleChange('justifyContent', v)}>
                                                 <SelectTrigger className="bg-secondary border-border">
                                                     <SelectValue />
                                                 </SelectTrigger>
@@ -525,7 +507,7 @@ export const PropertiesPanel = setup(() => {
 
                                         <div className="space-y-2 mb-4">
                                             <Label className="text-xs">Align Items</Label>
-                                            <Select value={selectedComponent.styles.alignItems || 'stretch'} onValueChange={(v) => handleStyleChange('alignItems', { target: { value: v } })}>
+                                            <Select value={selectedComponent.styles.alignItems || 'stretch'} onValueChange={(v) => handleStyleChange('alignItems', v)}>
                                                 <SelectTrigger className="bg-secondary border-border">
                                                     <SelectValue />
                                                 </SelectTrigger>

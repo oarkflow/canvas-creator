@@ -2,6 +2,19 @@ import {create} from 'zustand';
 import {BuilderComponent, Page, Project} from '@/features/builder/types/builder';
 import {mockApi} from '@/features/builder/data/services/mockApi';
 
+const findComponentById = (components: BuilderComponent[], targetId: string): BuilderComponent | null => {
+	for (const component of components) {
+		if (component.id === targetId) {
+			return component;
+		}
+		if (component.children) {
+			const match = findComponentById(component.children, targetId);
+			if (match) return match;
+		}
+	}
+	return null;
+};
+
 interface BuilderState {
 	// Project state
 	currentProject: Project | null;
@@ -63,12 +76,12 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 	setIsSaving: (saving) => set({isSaving: saving}),
 	setIsPreviewMode: (preview) => set({isPreviewMode: preview}),
 	setIsDragging: (dragging) => set({isDragging: dragging}),
-	
+
 	// Component operations
 	addComponent: (component, index, parentId) => {
 		const {currentPage} = get();
 		if (!currentPage) return;
-		
+
 		if (parentId) {
 			// Add to a container
 			const addToParent = (components: BuilderComponent[]): BuilderComponent[] => {
@@ -88,7 +101,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 					return comp;
 				});
 			};
-			
+
 			set({
 				currentPage: {...currentPage, components: addToParent(currentPage.components)},
 				selectedComponent: component,
@@ -101,18 +114,18 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 			} else {
 				components.push(component);
 			}
-			
+
 			set({
 				currentPage: {...currentPage, components},
 				selectedComponent: component,
 			});
 		}
 	},
-	
+
 	addToContainer: (containerId, component) => {
 		const {currentPage} = get();
 		if (!currentPage) return;
-		
+
 		const addToContainer = (components: BuilderComponent[]): BuilderComponent[] => {
 			return components.map(comp => {
 				if (comp.id === containerId) {
@@ -125,17 +138,17 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 				return comp;
 			});
 		};
-		
+
 		set({
 			currentPage: {...currentPage, components: addToContainer(currentPage.components)},
 			selectedComponent: component,
 		});
 	},
-	
+
 	updateComponent: (id, updates) => {
 		const {currentPage, selectedComponent} = get();
 		if (!currentPage) return;
-		
+
 		const updateInArray = (components: BuilderComponent[]): BuilderComponent[] => {
 			return components.map(comp => {
 				if (comp.id === id) {
@@ -147,25 +160,25 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 				return comp;
 			});
 		};
-		
+
 		const updatedComponents = updateInArray(currentPage.components);
-		
-		// Also update selectedComponent if it's the one being updated
+
+		// Also update selectedComponent if it's the one being updated, keeping reference in sync with tree
 		let updatedSelected = selectedComponent;
 		if (selectedComponent?.id === id) {
-			updatedSelected = {...selectedComponent, ...updates};
+			updatedSelected = findComponentById(updatedComponents, id);
 		}
-		
+
 		set({
 			currentPage: {...currentPage, components: updatedComponents},
-			selectedComponent: updatedSelected,
+			selectedComponent: updatedSelected ?? selectedComponent,
 		});
 	},
-	
+
 	deleteComponent: (id) => {
 		const {currentPage, selectedComponent} = get();
 		if (!currentPage) return;
-		
+
 		const removeFromArray = (components: BuilderComponent[]): BuilderComponent[] => {
 			return components
 				.filter(comp => comp.id !== id)
@@ -174,17 +187,17 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 					children: comp.children ? removeFromArray(comp.children) : undefined,
 				}));
 		};
-		
+
 		set({
 			currentPage: {...currentPage, components: removeFromArray(currentPage.components)},
 			selectedComponent: selectedComponent?.id === id ? null : selectedComponent,
 		});
 	},
-	
+
 	moveComponent: (fromIndex, toIndex, parentId) => {
 		const {currentPage} = get();
 		if (!currentPage) return;
-		
+
 		if (parentId) {
 			const moveInParent = (components: BuilderComponent[]): BuilderComponent[] => {
 				return components.map(comp => {
@@ -200,21 +213,21 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 					return comp;
 				});
 			};
-			
+
 			set({currentPage: {...currentPage, components: moveInParent(currentPage.components)}});
 		} else {
 			const components = [...currentPage.components];
 			const [moved] = components.splice(fromIndex, 1);
 			components.splice(toIndex, 0, moved);
-			
+
 			set({currentPage: {...currentPage, components}});
 		}
 	},
-	
+
 	duplicateComponent: (id) => {
 		const {currentPage} = get();
 		if (!currentPage) return;
-		
+
 		const deepClone = (comp: BuilderComponent): BuilderComponent => {
 			return {
 				...comp,
@@ -222,7 +235,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 				children: comp.children?.map(deepClone),
 			};
 		};
-		
+
 		const findAndDuplicate = (components: BuilderComponent[]): BuilderComponent[] => {
 			const result: BuilderComponent[] = [];
 			for (const comp of components) {
@@ -236,17 +249,17 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 			}
 			return result;
 		};
-		
+
 		set({
 			currentPage: {...currentPage, components: findAndDuplicate(currentPage.components)},
 		});
 	},
-	
+
 	// Page operations
 	savePage: async () => {
 		const {currentProject, currentPage} = get();
 		if (!currentProject || !currentPage) return;
-		
+
 		set({isSaving: true});
 		try {
 			await mockApi.updatePageComponents(
@@ -258,7 +271,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 			set({isSaving: false});
 		}
 	},
-	
+
 	loadPage: async (projectId, pageId) => {
 		set({isLoading: true});
 		try {
@@ -268,11 +281,11 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 			set({isLoading: false});
 		}
 	},
-	
+
 	createNewPage: async (name, type) => {
 		const {currentProject} = get();
 		if (!currentProject) return null;
-		
+
 		set({isLoading: true});
 		try {
 			const slug = name.toLowerCase().replace(/\s+/g, '-');
@@ -282,22 +295,22 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 				type,
 				components: [],
 			});
-			
+
 			if (newPage) {
 				const project = await mockApi.getProject(currentProject.id);
 				set({currentProject: project, currentPage: newPage});
 			}
-			
+
 			return newPage;
 		} finally {
 			set({isLoading: false});
 		}
 	},
-	
+
 	deletePage: async (pageId) => {
 		const {currentProject, currentPage} = get();
 		if (!currentProject) return false;
-		
+
 		set({isLoading: true});
 		try {
 			const success = await mockApi.deletePage(currentProject.id, pageId);
@@ -313,7 +326,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 			set({isLoading: false});
 		}
 	},
-	
+
 	// Project operations
 	loadProject: async () => {
 		set({isLoading: true});

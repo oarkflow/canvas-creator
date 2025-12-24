@@ -1,4 +1,5 @@
 import { setup, render, mutable, derived, effect } from '@anchorlib/react';
+import { debounce } from '@/features/builder/utils/debounce';
 import type React from 'react';
 import { Input } from '@/shared/ui/input';
 import { Textarea } from '@/shared/ui/textarea';
@@ -53,14 +54,27 @@ export const VariableInput = setup((props: VariableInputProps) => {
     const hasVars = hasVariables(state.localValue);
     const variables = extractVariables(state.localValue);
 
-    const commitTimer = mutable({ value: null as number | null });
+    // Debounced commit helper (uses shared debounce util)
+    const debouncedCommit = debounce((newValue: string) => {
+        onChange({ target: { value: newValue } } as any);
+    }, 200);
 
-    // Cleanup timer on unmount
+    // Cleanup on unmount
     effect(() => {
         return () => {
-            if (commitTimer.value) clearTimeout(commitTimer.value);
+            debouncedCommit.cancel();
+            // cancel any pending key-driven commits as well
+            commitFromKey.cancel?.();
         };
     });
+
+    // Debounced commit helper for key events (e.g., Enter)
+    const commitFromKey = debounce((newValue: string) => {
+        const flushed = debouncedCommit.flush();
+        if (!flushed && newValue !== value) {
+            onChange({ target: { value: newValue } } as any);
+        }
+    }, 50);
 
     // Get all available paths from data sources (derived)
     const availablePaths = derived(() => {
@@ -187,13 +201,7 @@ export const VariableInput = setup((props: VariableInputProps) => {
         state.localValue = newValue;
 
         // debounce commit to parent store to avoid re-render storms
-        if (commitTimer.value) clearTimeout(commitTimer.value);
-        // pass an event-like object so parent can handle event and extract value safely
-        const evtLike = { target: { value: newValue } };
-        commitTimer.value = window.setTimeout(() => {
-            onChange(evtLike as any);
-            commitTimer.value = null;
-        }, 200);
+        debouncedCommit(newValue);
 
         // Check if we should show autocomplete based on the current cursor
         const context = getVariableContext(newValue, cursor);
@@ -224,7 +232,7 @@ export const VariableInput = setup((props: VariableInputProps) => {
 
         // update local buffer and commit immediately
         state.localValue = newValue;
-        if (commitTimer.value) clearTimeout(commitTimer.value);
+        debouncedCommit.cancel();
         onChange({ target: { value: newValue } } as any);
 
         state.showAutocomplete = false;
@@ -264,10 +272,9 @@ export const VariableInput = setup((props: VariableInputProps) => {
             }
         }
 
-        // When autocomplete is closed, allow Enter to commit immediately
+        // When autocomplete is closed, allow Enter to commit (debounced)
         if (e.key === 'Enter') {
-            if (commitTimer.value) clearTimeout(commitTimer.value);
-            onChange({ target: { value: state.localValue } } as any);
+            commitFromKey(state.localValue);
             return;
         }
     };
@@ -327,16 +334,6 @@ export const VariableInput = setup((props: VariableInputProps) => {
                     value={state.localValue}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
-                    onBlur={() => {
-                        // commit pending changes on blur
-                        if (commitTimer.value) {
-                            clearTimeout(commitTimer.value);
-                            commitTimer.value = null;
-                        }
-                        wasFocused.value = false;
-                        state.showAutocomplete = false;
-                        if (state.localValue !== value) onChange({ target: { value: state.localValue } } as any);
-                    }}
                     placeholder={placeholder}
                     className={cn(
                         'bg-secondary border-border',
